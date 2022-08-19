@@ -25,7 +25,11 @@ import pieces.Queen;
 import pieces.Rook;
 
 public class Board {
-	
+
+	private Boolean blackKingWasAdded;
+	private Boolean whiteKingWasAdded;
+	private Boolean atLeastTwoBlackPiecesAdded;
+	private Boolean atLeastTwoWhitePiecesAdded;
 	private int turns;
 	private List<Piece[][]> undoBoards;
 	private List<Piece> capturedPieces;
@@ -34,6 +38,10 @@ public class Board {
 	private PieceColor currentColorTurn;
 	
 	public Board() { 
+		blackKingWasAdded = false;
+		whiteKingWasAdded = false;
+		atLeastTwoBlackPiecesAdded = false;
+		atLeastTwoWhitePiecesAdded = false;
 		board = new Piece[8][8];
 		undoBoards = new ArrayList<>();
 		capturedPieces = new ArrayList<>();
@@ -45,6 +53,22 @@ public class Board {
 		currentColorTurn = startTurn;		
 	}
 	
+	public void validateBoard() {
+		if (!blackKingWasAdded)
+			throw new BoardException("The Black King was not found on the board. Set pieces on the board using .AddNewPiece()");
+		if (!whiteKingWasAdded)
+			throw new BoardException("The White King was not found on the board. Set pieces on the board using .AddNewPiece()");
+		if (!atLeastTwoBlackPiecesAdded || !atLeastTwoWhitePiecesAdded)
+			throw new BoardException("You must set at least 2 pieces of each color on the board, including a King for each color. Set pieces on the board using .AddNewPiece()");
+	}
+
+	private void validatePosition(Position position, String varName) throws BoardException {
+		if (position == null)
+			throw new BoardException(varName + " is null");
+		if (!isValidBoardPosition(position))
+			throw new BoardException(varName + " - Invalid board position");
+	}
+	
 	public void reset() {
 		turns = 0;
 		selectedPiece = null;
@@ -52,7 +76,6 @@ public class Board {
 		capturedPieces.clear();
 		resetBoard(board);
 		undoBoards.clear();
-		setPiecesOnTheBoard();
 	}
 	
 	public List<Piece> getPieceList(PieceColor color) {
@@ -75,6 +98,7 @@ public class Board {
 	}
 
 	private void copyBoard(Piece[][] sourceBoard, Piece[][] targetBoard) {
+		validateBoard();
 		if (sourceBoard == null)
 			throw new GameException("sourceBoard is null");
 		if (targetBoard == null)
@@ -84,16 +108,23 @@ public class Board {
 				targetBoard[y][x] = sourceBoard[y][x]; 
 	}
 	
-	public int getTurns()
-		{ return turns; }
+	public int getTurns() {
+		validateBoard();
+		return turns;
+	}
 	
-	public PieceColor getWinnerColor()
-		{ return checkMate() ? opponentColor() : null; }
+	public PieceColor getWinnerColor() {
+		validateBoard();
+		return checkMate() ? opponentColor() : null;
+	}
 	
-	public PieceColor getCurrentColorTurn()
-		{ return currentColorTurn; }
+	public PieceColor getCurrentColorTurn() {
+		validateBoard();
+		return currentColorTurn;
+	}
 	
 	public Piece getPromotedPiece() {
+		validateBoard();
 		for (Piece piece : board[currentColorTurn == PieceColor.BLACK ? 0 : 7])
 			if (piece != null && piece.getType() == PieceType.PAWN)
 				return piece;
@@ -101,10 +132,12 @@ public class Board {
 	}
 	
 	public Boolean pieceWasPromoted() {
-		{ return getPromotedPiece() != null; }
+		validateBoard();
+		return getPromotedPiece() != null;
 	}
 	
 	public void promotePiece(PieceType newType) throws BoardException {
+		validateBoard();
 		if (!pieceWasPromoted())
 			throw new PromotionException("There is no promoted piece");
 		if (newType == null)
@@ -121,6 +154,7 @@ public class Board {
 	}
 	
 	public Piece getEnPassantPiece() {
+		validateBoard();
 		if (selectedPiece == null || selectedPiece.getType() != PieceType.PAWN)
 			return null;
 
@@ -137,6 +171,7 @@ public class Board {
 	}
 	
 	public Position getEnPassantCapturePosition() {
+		validateBoard();
 		if (!checkEnPassant())
 			return null;
 		Piece piece = getEnPassantPiece();
@@ -145,10 +180,13 @@ public class Board {
 		return position;
 	}
 
-	public Boolean checkEnPassant()
-		{ return getEnPassantPiece() != null; }
+	public Boolean checkEnPassant() {
+		validateBoard();
+		return getEnPassantPiece() != null;
+	}
 
 	public Boolean checkIfCastlingIsPossible(King king, Rook rook) {
+		validateBoard();
 		if (king == null)
 			throw new GameException("king is null");
 		if (rook == null)
@@ -178,21 +216,15 @@ public class Board {
 	}
 
 	public Boolean checkIfCastlingIsPossible(Piece king, Piece rook) {
+		validateBoard();
 		if (king.getType() != PieceType.KING || rook.getType() != PieceType.ROOK)
 			return false;
 		return checkIfCastlingIsPossible((King) king, (Rook) rook);
 	}
 	
-	private void validatePosition(Position position, String varName) throws BoardException {
-		if (position == null)
-			throw new BoardException(varName + " is null");
-		if (!isValidBoardPosition(position))
-			throw new BoardException(varName + " - Invalid board position");
-	}
-	
 	public Boolean isValidBoardPosition(Position position) {
 		if (position == null)
-			throw new GameException("position is null");
+			throw new BoardException("position is null");
 		return position.getColumn() >= 0 && position.getColumn() < 8 &&
 			position.getRow() >= 0 && position.getRow() < 8;
 	}
@@ -202,10 +234,13 @@ public class Board {
 		return isValidBoardPosition(position) && getPieceAt(position) == null;
 	}
 	
-	public Piece getPieceAt(Position position)
-		{ return board[position.getRow()][position.getColumn()]; }
+	public Piece getPieceAt(Position position) {
+		validatePosition(position, "position");
+		return board[position.getRow()][position.getColumn()];
+	}
 	
 	public Boolean isOpponentPiece(Position position, PieceColor color) { 
+		validateBoard();
 		if (color == null)
 			throw new GameException("color is null");
 		validatePosition(position, "position");
@@ -213,17 +248,23 @@ public class Board {
 	}
 	
 	public Boolean isOpponentPiece(Position position) {
+		validateBoard();
 		validatePosition(position, "position");
 		return isOpponentPiece(position, getCurrentColorTurn());
 	}
 
-	public Piece getSelectedPiece()
-		{ return selectedPiece; }
+	public Piece getSelectedPiece() {
+		validateBoard();
+		return selectedPiece;
+	}
 	
-	public Boolean pieceIsSelected()
-		{ return getSelectedPiece() != null; }
+	public Boolean pieceIsSelected() {
+		validateBoard();
+		return getSelectedPiece() != null;
+	}
 
 	public Piece selectPiece(Position position) throws PieceSelectionException {
+		validateBoard();
 		validatePosition(position, "position");
 		if (getPieceAt(position) == null)
 			throw new PieceSelectionException("There is no piece on that position");
@@ -235,27 +276,33 @@ public class Board {
 	}
 	
 	public PieceColor opponentColor(PieceColor color) { 
+		validateBoard();
 		if (color == null)
 			throw new GameException("color is null");
 		return color == PieceColor.BLACK ? PieceColor.WHITE : PieceColor.BLACK;
 	}
 	
-	public PieceColor opponentColor()
-		{ return opponentColor(getCurrentColorTurn()); }
+	public PieceColor opponentColor() {
+		validateBoard();
+		return opponentColor(getCurrentColorTurn());
+	}
 	
 	public void addCapturedPiece(Piece piece) {
+		validateBoard();
 		if (piece == null)
 			throw new GameException("piece is null");
 		capturedPieces.add(piece);
 	}
 
 	public void removeCapturedPiece(Piece piece) {
+		validateBoard();
 		if (piece == null)
 			throw new GameException("piece is null");
 		capturedPieces.remove(piece);
 	}
 	
 	public List<Piece> getCapturedPieces(PieceColor color) {
+		validateBoard();
 		if (color == null)
 			throw new GameException("color is null");
 		return capturedPieces.stream()
@@ -264,6 +311,7 @@ public class Board {
 	}
 
 	private void addPiece(Position position, Piece piece) { 
+		validateBoard();
 		validatePosition(position, "position");
 		if (piece == null)
 			throw new GameException("piece is null");
@@ -274,6 +322,7 @@ public class Board {
 	}
 
 	private void removePiece(Position position) { 
+		validateBoard();
 		validatePosition(position, "position");
 		if (isFreeSlot(position))
 			throw new BoardException("There's no piece at this slot position");
@@ -281,6 +330,7 @@ public class Board {
 	}
 	
 	private void undoMoves(int totalUndoMoves) {
+		validateBoard();
 		if (totalUndoMoves < 0)
 			throw new GameException("totalUndoMoves must be 0>");
 		if (undoBoards.isEmpty())
@@ -299,12 +349,14 @@ public class Board {
 		{ undoMoves(1); }
 	
 	public void cancelSelection() {
+		validateBoard();
 		if (pieceWasPromoted())
 			throw new BoardException("You must promote your pawn");
 		selectedPiece = null;
 	}
 	
 	private Piece movePieceTo(Position sourcePos, Position targetPos, Boolean testingCheckMate) throws InvalidMoveException {
+		validateBoard();
 		validatePosition(sourcePos, "sourcePos");
 		validatePosition(targetPos, "targetPos");
 		if (!testingCheckMate && pieceWasPromoted())
@@ -382,6 +434,7 @@ public class Board {
 	}
 
 	private void changeTurn() {
+		validateBoard();
 		if (pieceWasPromoted())
 			throw new GameException("You must promote the pawn");
 		turns++;
@@ -393,6 +446,7 @@ public class Board {
 		{ return movePieceTo(getSelectedPiece().getPosition(), targetPos, false); }
 	
 	public Boolean pieceColdBeCaptured(Piece piece) {
+		validateBoard();
 		if (piece == null)
 			throw new GameException("piece is null");
 		List<Piece> opponentPieceList = getPieceList(piece.getColor() == PieceColor.BLACK ? PieceColor.WHITE : PieceColor.BLACK);
@@ -403,6 +457,7 @@ public class Board {
 	}
 	
 	public Boolean pieceCanDoSafeMove(Piece piece) {
+		validateBoard();
 		if (piece == null)
 			throw new GameException("piece is null");
 		for (Position myPos : piece.getPossibleMoves()) {
@@ -417,6 +472,7 @@ public class Board {
 	}
 
 	public Boolean isChecked(PieceColor color) {
+		validateBoard();
 		if (color == null)
 			throw new GameException("color is null");
 		List<Piece> pieceList = getPieceList(color);
@@ -430,6 +486,7 @@ public class Board {
 		{ return isChecked(getCurrentColorTurn()); }
 	
 	public Boolean checkMate(PieceColor color) {
+		validateBoard();
 		if (color == null)
 			throw new GameException("color is null");
 		Piece king = null;
@@ -460,7 +517,10 @@ public class Board {
 		{ return checkMate(getCurrentColorTurn()); }
 
 	public void addNewPiece(Position position, PieceType type, PieceColor color) throws GameException,BoardException {
-		validatePosition(position, "position");
+		if (position == null)
+			throw new BoardException("position is null");
+		if (!isValidBoardPosition(position))
+			throw new BoardException("Invalid board position");
 		if (type == null)
 			throw new GameException("type is null");
 		if (color == null)
@@ -468,8 +528,13 @@ public class Board {
 		if (!isFreeSlot(position))
 			throw new BoardException("This board position is not free");
 		Piece piece;
-		if (type == PieceType.KING)
+		if (type == PieceType.KING) {
 			piece = new King(this, position, color);
+			if (color == PieceColor.BLACK)
+				blackKingWasAdded = true;
+			else
+				whiteKingWasAdded = true;
+		}
 		else if (type == PieceType.QUEEN) 
 			piece = new Queen(this, position, color);
 		else if (type == PieceType.ROOK) 
@@ -483,6 +548,12 @@ public class Board {
 		else 
 			piece = new Pawn(this, position, color);
 		board[position.getRow()][position.getColumn()] = piece;
+		if (getPieceList(color).size() == 2) {
+			if (color == PieceColor.BLACK)
+				atLeastTwoBlackPiecesAdded = true;
+			else
+				atLeastTwoWhitePiecesAdded = true;
+		}
 	}
 
 	public void addNewPiece(int row, int column, PieceType type, PieceColor color) throws GameException,BoardException
@@ -493,49 +564,5 @@ public class Board {
 	
 	public void addNewPiece(Position position, Piece piece)
 		{ addNewPiece(position, piece.getType(), piece.getColor()); }
-	
-	private void setPiecesOnTheBoardORIGINAL() throws GameException,BoardException {
-		// White Pieces
-		addNewPiece("a7", PieceType.PAWN, PieceColor.WHITE);
-		addNewPiece("b7", PieceType.PAWN, PieceColor.WHITE);
-		addNewPiece("c7", PieceType.PAWN, PieceColor.WHITE);
-		addNewPiece("d7", PieceType.PAWN, PieceColor.WHITE);
-		addNewPiece("e7", PieceType.PAWN, PieceColor.WHITE);
-		addNewPiece("f7", PieceType.PAWN, PieceColor.WHITE);
-		addNewPiece("g7", PieceType.PAWN, PieceColor.WHITE);
-		addNewPiece("h7", PieceType.PAWN, PieceColor.WHITE);
-		addNewPiece("a8", PieceType.ROOK, PieceColor.WHITE);
-		addNewPiece("b8", PieceType.KNIGHT, PieceColor.WHITE);
-		addNewPiece("c8", PieceType.BISHOP, PieceColor.WHITE);
-		addNewPiece("d8", PieceType.QUEEN, PieceColor.WHITE);
-		addNewPiece("e8", PieceType.KING, PieceColor.WHITE);
-		addNewPiece("f8", PieceType.BISHOP, PieceColor.WHITE);
-		addNewPiece("g8", PieceType.KNIGHT, PieceColor.WHITE);
-		addNewPiece("h8", PieceType.ROOK, PieceColor.WHITE);
-		// Black Pieces
-		addNewPiece("a2", PieceType.PAWN, PieceColor.BLACK);
-		addNewPiece("b2", PieceType.PAWN, PieceColor.BLACK);
-		addNewPiece("c2", PieceType.PAWN, PieceColor.BLACK);
-		addNewPiece("d2", PieceType.PAWN, PieceColor.BLACK);
-		addNewPiece("e2", PieceType.PAWN, PieceColor.BLACK);
-		addNewPiece("f2", PieceType.PAWN, PieceColor.BLACK);
-		addNewPiece("g2", PieceType.PAWN, PieceColor.BLACK);
-		addNewPiece("h2", PieceType.PAWN, PieceColor.BLACK);
-		addNewPiece("a1", PieceType.ROOK, PieceColor.BLACK);
-		addNewPiece("b1", PieceType.KNIGHT, PieceColor.BLACK);
-		addNewPiece("c1", PieceType.BISHOP, PieceColor.BLACK);
-		addNewPiece("d1", PieceType.QUEEN, PieceColor.BLACK);
-		addNewPiece("e1", PieceType.KING, PieceColor.BLACK);
-		addNewPiece("f1", PieceType.BISHOP, PieceColor.BLACK);
-		addNewPiece("g1", PieceType.KNIGHT, PieceColor.BLACK);
-		addNewPiece("h1", PieceType.ROOK, PieceColor.BLACK);
-	}
-	
-	private void setPiecesOnTheBoard() throws BoardException {
-		addNewPiece("h8", PieceType.KING, PieceColor.WHITE);
-		addNewPiece("e7", PieceType.QUEEN, PieceColor.BLACK);
-		addNewPiece("e1", PieceType.KING, PieceColor.BLACK);
-		
 
-	}
 }
