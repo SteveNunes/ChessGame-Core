@@ -438,7 +438,8 @@ public class Board {
 		}
 
 		addPiece(targetPos, sourcePiece);
-		sourcePiece.incMovedTurns(1);
+		if (!justTesting)
+			sourcePiece.incMovedTurns(1);
 
 		if (currentColorIsChecked()) {
 			if (justTesting)
