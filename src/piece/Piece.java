@@ -11,10 +11,10 @@ public abstract class Piece {
 	private PieceType type;
 	private Board board;
 	private PieceColor color;
-	private Position position;
+	private PiecePosition position;
 	private int movedTurns;
 	
-	public Piece(Board board, Position position, PieceType type, PieceColor color) {
+	public Piece(Board board, PiecePosition position, PieceType type, PieceColor color) {
 		this.board = board;
 		setPosition(position);
 		movedTurns = 0;
@@ -34,10 +34,10 @@ public abstract class Piece {
 	public void incColumn(int value)
 		{ position.incColumn(value); }
 
-	public Position getPosition()
+	public PiecePosition getPosition()
 		{ return position; }
 	
-	public void setPosition(Position position)
+	public void setPosition(PiecePosition position)
 		{ this.position = position; }
 	
 	public void setPosition(int row, int column)
@@ -70,10 +70,10 @@ public abstract class Piece {
 	public Boolean isStucked()
 		{ return getPossibleMoves().size() == 0; }
 	
-	public Boolean canMoveToPosition(Position position) 
+	public Boolean canMoveToPosition(PiecePosition position) 
 		{ return getPossibleMoves().contains(position); }
 	
-	public abstract List<Position> getPossibleMoves();
+	public abstract List<PiecePosition> getPossibleMoves();
 
 	@Override
 	public String toString()

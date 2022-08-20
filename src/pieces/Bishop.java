@@ -6,21 +6,21 @@ import java.util.List;
 import board.Board;
 import enums.*;
 import piece.Piece;
-import piece.Position;
+import piece.PiecePosition;
 
 public class Bishop extends Piece  {
 	
-	public Bishop(Board board, Position position, PieceColor color)
+	public Bishop(Board board, PiecePosition position, PieceColor color)
 		{ super(board, position, PieceType.BISHOP, color); }
 	
 	@Override
-	public List<Position> getPossibleMoves() {
-		List<Position> moves = new ArrayList<>();
+	public List<PiecePosition> getPossibleMoves() {
+		List<PiecePosition> moves = new ArrayList<>();
 		int[][] inc = {
 			{-1,-1,1,1},
 			{-1,1,-1,1}
 		};
-		Position p = new Position(getPosition());
+		PiecePosition p = new PiecePosition(getPosition());
 		// 4 diagonal directions check
 		for (int dir = 0; dir < 4; dir++) {
 			p.setValues(getPosition());
@@ -28,7 +28,7 @@ public class Bishop extends Piece  {
 				p.incValues(inc[0][dir], inc[1][dir]);
 				if (!getBoard().isValidBoardPosition(p) ||
 						(!getBoard().isFreeSlot(p) && !getBoard().isOpponentPiece(p, getColor()))) break; 
-							moves.add(new Position(p));
+							moves.add(new PiecePosition(p));
 				if (!getBoard().isFreeSlot(p) && getBoard().isOpponentPiece(p, getColor()))
 					break; 
 			}

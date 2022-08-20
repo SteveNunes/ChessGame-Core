@@ -6,21 +6,21 @@ import java.util.List;
 import board.Board;
 import enums.*;
 import piece.Piece;
-import piece.Position;
+import piece.PiecePosition;
 
 public class Queen extends Piece  {
 
-	public Queen(Board board, Position position, PieceColor color)
+	public Queen(Board board, PiecePosition position, PieceColor color)
 		{ super(board, position, PieceType.QUEEN, color); }
 
 	@Override
-	public List<Position> getPossibleMoves() {
-		List<Position> moves = new ArrayList<>();
+	public List<PiecePosition> getPossibleMoves() {
+		List<PiecePosition> moves = new ArrayList<>();
 		int[][] inc = {
 			{-1,-1,-1,0,0,1,1,1},
 			{-1,0,1,-1,1,-1,0,1}
 		};
-		Position p = new Position(getPosition());
+		PiecePosition p = new PiecePosition(getPosition());
 		// 8 directions check
 		for (int dir = 0; dir < 8; dir++) {
 			p.setValues(getPosition());
@@ -29,7 +29,7 @@ public class Queen extends Piece  {
 				if (!getBoard().isValidBoardPosition(p) ||
 					(!getBoard().isFreeSlot(p) && !getBoard().isOpponentPiece(p, getColor())))
 					break; 
-				moves.add(new Position(p));
+				moves.add(new PiecePosition(p));
 				if (!getBoard().isFreeSlot(p) && getBoard().isOpponentPiece(p, getColor()))
 					break; 
 			}

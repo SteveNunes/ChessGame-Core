@@ -16,7 +16,7 @@ import exceptions.InvalidPositionException;
 import exceptions.PieceSelectionException;
 import exceptions.PromotionException;
 import piece.Piece;
-import piece.Position;
+import piece.PiecePosition;
 import pieces.Bishop;
 import pieces.King;
 import pieces.Knight;
@@ -135,7 +135,7 @@ public class Board {
 			saveBoardForUndo();
 	}
 
-	private void validatePosition(Position position, String varName) throws NullPointerException,InvalidPositionException {
+	private void validatePosition(PiecePosition position, String varName) throws NullPointerException,InvalidPositionException {
 		validateNullVar(position, varName);
 		if (!isValidBoardPosition(position))
 			throw new InvalidPositionException(varName + " " + position + " - Invalid board position");
@@ -198,7 +198,7 @@ public class Board {
 		validateNullVar(newType, "newType");
 		if (newType == PieceType.PAWN || newType == PieceType.KING)
 			throw new PromotionException("You can't promote a Pawn to a " + newType.getValue());
-		Position pos = new Position(getPromotedPiece().getPosition());
+		PiecePosition pos = new PiecePosition(getPromotedPiece().getPosition());
 		PieceColor color = getPromotedPiece().getColor();
 		removePiece(getPromotedPiece().getPosition());
 		addNewPiece(pos, newType, color);
@@ -215,11 +215,11 @@ public class Board {
 		return enPassantPiece;
 	}
 	
-	public Position getEnPassantCapturePosition() {
+	public PiecePosition getEnPassantCapturePosition() {
 		validateBoard();
 		if (!checkEnPassant())
 			return null;
-		Position position = new Position(getEnPassantPiece().getPosition());
+		PiecePosition position = new PiecePosition(getEnPassantPiece().getPosition());
 		position.incRow(getEnPassantPiece().getColor() == PieceColor.WHITE ? -1 : -1);
 		return position;
 	}
@@ -232,7 +232,7 @@ public class Board {
 				getEnPassantPiece().getColor() == getSelectedPiece().getColor())
 					return false;
 		for (int x = -1; x <= 1; x += 2) {
-			Position p = new Position(getSelectedPiece().getPosition());
+			PiecePosition p = new PiecePosition(getSelectedPiece().getPosition());
 			p.incColumn(x);
 			if (getEnPassantPiece().getPosition().equals(p))
 				return true;
@@ -249,8 +249,8 @@ public class Board {
 		if (king.wasMoved() || rook.wasMoved() || currentColorIsChecked())
 			return false;
 
-		Position kingPosition = new Position(king.getPosition());
-		Position rookPosition = new Position(rook.getPosition());
+		PiecePosition kingPosition = new PiecePosition(king.getPosition());
+		PiecePosition rookPosition = new PiecePosition(rook.getPosition());
 		Boolean toLeft = kingPosition.getColumn() > rookPosition.getColumn();
 		
 		while (!kingPosition.equals(rookPosition)) {
@@ -273,18 +273,18 @@ public class Board {
 		return checkIfCastlingIsPossible((King) king, (Rook) rook);
 	}
 	
-	public Boolean isValidBoardPosition(Position position) {
+	public Boolean isValidBoardPosition(PiecePosition position) {
 		validateNullVar(position, "position");
 		return position.getColumn() >= 0 && position.getColumn() < 8 &&
 			position.getRow() >= 0 && position.getRow() < 8;
 	}
 	
-	public Boolean isFreeSlot(Position position) {
+	public Boolean isFreeSlot(PiecePosition position) {
 		validateNullVar(position, "position");
 		return isValidBoardPosition(position) && getPieceAt(position) == null;
 	}
 	
-	public Piece getPieceAt(Position position) {
+	public Piece getPieceAt(PiecePosition position) {
 		validateNullVar(position, "position");
 		return !isValidBoardPosition(position) ? null : board[position.getRow()][position.getColumn()];
 	}
@@ -295,13 +295,13 @@ public class Board {
 		return p1.getColor() != p2.getColor();
 	}
 	
-	public Boolean isOpponentPiece(Position position, PieceColor color) { 
+	public Boolean isOpponentPiece(PiecePosition position, PieceColor color) { 
 		validateBoard();
 		validateNullVar(color, "color");
 		return isValidBoardPosition(position) && !isFreeSlot(position) && getPieceAt(position).getColor() != color;
 	}
 	
-	public Boolean isOpponentPiece(Position position) {
+	public Boolean isOpponentPiece(PiecePosition position) {
 		validateBoard();
 		return getPieceAt(position) != null && isOpponentPiece(position, getCurrentColorTurn());
 	}
@@ -316,7 +316,7 @@ public class Board {
 		return getSelectedPiece() != null;
 	}
 
-	public Piece selectPiece(Position position) throws BoardException,InvalidPositionException,PieceSelectionException {
+	public Piece selectPiece(PiecePosition position) throws BoardException,InvalidPositionException,PieceSelectionException {
 		validateBoard();
 		validatePosition(position, "position");
 		if (isFreeSlot(position))
@@ -365,7 +365,7 @@ public class Board {
 	public List<Piece> getCapturedPieces()
 		{ return getCapturedPieces(null); }
 	
-	private void addPiece(Position position, Piece piece) { 
+	private void addPiece(PiecePosition position, Piece piece) { 
 		validateBoard();
 		validatePosition(position, "position");
 		validateNullVar(piece, "piece");
@@ -375,7 +375,7 @@ public class Board {
 		piece.setPosition(position);
 	}
 
-	private void removePiece(Position position) { 
+	private void removePiece(PiecePosition position) { 
 		validateBoard();
 		validatePosition(position, "position");
 		if (isFreeSlot(position))
@@ -390,15 +390,15 @@ public class Board {
 		selectedPiece = null;
 	}
 	
-	private Piece movePieceTo(Position sourcePos, Position targetPos, Boolean justTesting) throws InvalidMoveException {
+	private Piece movePieceTo(PiecePosition sourcePos, PiecePosition targetPos, Boolean justTesting) throws InvalidMoveException {
 		if (!justTesting) {
 			validateBoard();
 			validatePosition(sourcePos, "sourcePos");
 			validatePosition(targetPos, "targetPos");
 		}
 		
-		sourcePos = new Position(sourcePos);
-		targetPos = new Position(targetPos);
+		sourcePos = new PiecePosition(sourcePos);
+		targetPos = new PiecePosition(targetPos);
 
 		if (pieceWasPromoted()) {
 			if (justTesting)
@@ -426,12 +426,12 @@ public class Board {
 		cloneBoard(this, cloneBoard);
 
 		// Castling special move
-		Position rookPosition = new Position(sourcePos);
+		PiecePosition rookPosition = new PiecePosition(sourcePos);
 		Boolean rookAtLeft = targetPos.getColumn() < sourcePos.getColumn();
 		rookPosition.setColumn(rookAtLeft ? 0 : 7);
 		if (targetPiece != null && checkIfCastlingIsPossible(sourcePiece, targetPiece)) {
 			removePiece(rookPosition);
-			rookPosition = new Position(targetPos);
+			rookPosition = new PiecePosition(targetPos);
 			rookPosition.incColumn(rookAtLeft ? 1 : -1);
 			addNewPiece(rookPosition, (Rook) getPieceAt(rookPosition));
 		}
@@ -480,10 +480,10 @@ public class Board {
 		currentColorTurn = opponentColor();
 	}
 
-	public Piece movePieceTo(Position targetPos) throws BoardException 
+	public Piece movePieceTo(PiecePosition targetPos) throws BoardException 
 		{ return movePieceTo(getSelectedPiece().getPosition(), targetPos, false); }
 	
-	public Boolean pieceColdBeCaptured(Position position, PieceColor color) {
+	public Boolean pieceColdBeCaptured(PiecePosition position, PieceColor color) {
 		validateBoard();
 		validatePosition(position, "position");
 		List<Piece> opponentPieceList = getPieceList(color == PieceColor.BLACK ? PieceColor.WHITE : PieceColor.BLACK);
@@ -500,9 +500,9 @@ public class Board {
 		validateBoard();
 		validateNullVar(piece, "piece");
 		Board backupBoard = new Board();
-		Position fromPos = new Position(piece.getPosition());
+		PiecePosition fromPos = new PiecePosition(piece.getPosition());
 		cloneBoard(this, backupBoard);
-		for (Position myPos : piece.getPossibleMoves()) {
+		for (PiecePosition myPos : piece.getPossibleMoves()) {
 			movePieceTo(fromPos, myPos, true);
 			if (!pieceColdBeCaptured(piece) && !isChecked(piece.getColor())) {
 				cloneBoard(backupBoard, this);
@@ -537,15 +537,15 @@ public class Board {
 
 		Board backupBoard1 = new Board();
 		Board backupBoard2 = new Board();
-		Position kingPos = new Position(king.getPosition());
+		PiecePosition kingPos = new PiecePosition(king.getPosition());
 		for (Piece p : pieceList)
 			if (p.getType() != PieceType.KING)
 				for (Piece p2 : pieceList) {
-					Position fromPos = new Position(p2.getPosition());
-					for (Position pos : p2.getPossibleMoves()) {
+					PiecePosition fromPos = new PiecePosition(p2.getPosition());
+					for (PiecePosition pos : p2.getPossibleMoves()) {
 						cloneBoard(this, backupBoard1);
 						movePieceTo(fromPos, pos, true);
-						for (Position pos2 : king.getPossibleMoves()) {
+						for (PiecePosition pos2 : king.getPossibleMoves()) {
 							cloneBoard(this, backupBoard2);
 							movePieceTo(kingPos, pos2, true);
 							if (pieceCanDoSafeMove(king)) {
@@ -563,7 +563,7 @@ public class Board {
 	public Boolean checkMate()
 		{ return checkMate(getCurrentColorTurn()); }
 	
-	public Piece getNewPieceInstance(Board board, Position position, PieceType type, PieceColor color) {
+	public Piece getNewPieceInstance(Board board, PiecePosition position, PieceType type, PieceColor color) {
 		if (type == PieceType.KING)
 			return new King(board, position, color);
 		else if (type == PieceType.QUEEN) 
@@ -578,7 +578,7 @@ public class Board {
 			return new Pawn(board, position, color);
 	}
 	
-	public Piece getNewPieceInstance(Position position, PieceType type, PieceColor color)
+	public Piece getNewPieceInstance(PiecePosition position, PieceType type, PieceColor color)
 		{ return getNewPieceInstance(this, position, type, color); }
 	
 	public Piece getNewPieceInstance(Board board, Piece piece)
@@ -587,7 +587,7 @@ public class Board {
 	public Piece getNewPieceInstance(Piece piece)
 		{ return getNewPieceInstance(this, piece); }
 
-	public void addNewPiece(Position position, PieceType type, PieceColor color) throws NullPointerException,InvalidPositionException {
+	public void addNewPiece(PiecePosition position, PieceType type, PieceColor color) throws NullPointerException,InvalidPositionException {
 		validateNullVar(position, "position");
 		if (!isValidBoardPosition(position))
 			throw new InvalidPositionException("Invalid board position");
@@ -612,12 +612,12 @@ public class Board {
 	}
 
 	public void addNewPiece(int row, int column, PieceType type, PieceColor color) throws GameException,BoardException
-		{ addNewPiece(new Position(row, column), type, color); }
+		{ addNewPiece(new PiecePosition(row, column), type, color); }
 
 	public void addNewPiece(String position, PieceType type, PieceColor color) throws GameException,BoardException
-		{ addNewPiece(Position.stringToPosition(position), type, color); }
+		{ addNewPiece(PiecePosition.stringToPosition(position), type, color); }
 	
-	public void addNewPiece(Position position, Piece piece)
+	public void addNewPiece(PiecePosition position, Piece piece)
 		{ addNewPiece(position, piece.getType(), piece.getColor()); }
 
 }

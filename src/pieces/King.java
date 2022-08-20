@@ -7,24 +7,24 @@ import board.Board;
 import enums.PieceColor;
 import enums.PieceType;
 import piece.Piece;
-import piece.Position;
+import piece.PiecePosition;
 
 public class King extends Piece  {
 
-	public King(Board board, Position position, PieceColor color)
+	public King(Board board, PiecePosition position, PieceColor color)
 		{ super(board, position, PieceType.KING, color); }
 
 	@Override
-	public List<Position> getPossibleMoves() {
-		List<Position> moves = new ArrayList<>();
-		Position p = new Position(getPosition());
+	public List<PiecePosition> getPossibleMoves() {
+		List<PiecePosition> moves = new ArrayList<>();
+		PiecePosition p = new PiecePosition(getPosition());
 		int[][] inc = {
 			{-1,-1,-1,1,1,1,0,0,0,0},
 			{-1,0,1,-1,0,1,-1,1,1,1}
 		};
 		
 		// Castling special move
-		Position p2 = new Position(getPosition());
+		PiecePosition p2 = new PiecePosition(getPosition());
 		for (int c = 0; c <= 7; c += 7) {
 			p2.setColumn(c);
 			Piece rook = getBoard().getPieceAt(p2);
@@ -42,7 +42,7 @@ public class King extends Piece  {
 			p.incValues(inc[0][dir], inc[1][dir]);
 			if (getBoard().isValidBoardPosition(p) &&
 					(getBoard().isFreeSlot(p) || getBoard().isOpponentPiece(p, getColor())))
-						moves.add(new Position(p));
+						moves.add(new PiecePosition(p));
 		}
 		return moves;
 	}
