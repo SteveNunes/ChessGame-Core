@@ -220,7 +220,7 @@ public class Board {
 		if (!checkEnPassant())
 			return null;
 		Position position = new Position(getEnPassantPiece().getPosition());
-		position.incValues(getEnPassantPiece().getColor() == PieceColor.WHITE ? -1 : -1, 0);
+		position.incRow(getEnPassantPiece().getColor() == PieceColor.WHITE ? -1 : -1);
 		return position;
 	}
 
@@ -232,7 +232,7 @@ public class Board {
 				getEnPassantPiece().getColor() == getSelectedPiece().getColor())
 					return false;
 		for (int x = -1; x <= 1; x += 2) {
-			Position p = getSelectedPiece().getPosition();
+			Position p = new Position(getSelectedPiece().getPosition());
 			p.incColumn(x);
 			if (getEnPassantPiece().getPosition().equals(p))
 				return true;
