@@ -37,7 +37,7 @@ public class Knight extends Piece  {
 		{ return PieceType.KNIGHT.name(); }
 
 	@Override
-	public char let()
-		{ return 'N'; }
+	public String let()
+		{ return "N"; }
 
 }

@@ -79,6 +79,7 @@ public abstract class Piece {
 	public String toString()
 		{ return "PIECE"; }
 	
-	public char let() { return '-'; }
+	public String let()
+		{ return "-"; }
 
 }

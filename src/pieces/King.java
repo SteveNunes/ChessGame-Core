@@ -52,7 +52,7 @@ public class King extends Piece  {
 		{ return PieceType.KING.name(); }
 
 	@Override
-	public char let()
-		{ return 'K'; }
+	public String let()
+		{ return "K"; }
 
 }

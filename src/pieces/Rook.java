@@ -42,7 +42,7 @@ public class Rook extends Piece  {
 		{ return PieceType.ROOK.name(); }
 
 	@Override
-	public char let()
-		{ return 'R'; }
+	public String let()
+		{ return "R"; }
 	
 }
