@@ -136,12 +136,16 @@ public class Board {
 	}
 
 	private void validatePosition(Position position, String varName) throws NullPointerException,InvalidPositionException {
-		if (position == null)
-			throw new NullPointerException(varName + " is null");
+		validateNullVar(position, varName);
 		if (!isValidBoardPosition(position))
 			throw new InvalidPositionException(varName + " - Invalid board position");
 	}
 	
+	private <T> void validateNullVar(T var, String varName) throws NullPointerException {
+		if (var == null)
+			throw new NullPointerException("\"" + varName + "\" is null");
+	}
+
 	public List<Piece> getPieceList(PieceColor color) {
 		List<Piece> pieceList = new ArrayList<>();
 		for (Piece[] boardRow : board)
@@ -191,8 +195,7 @@ public class Board {
 		validateBoard();
 		if (!pieceWasPromoted())
 			throw new PromotionException("There is no promoted piece");
-		if (newType == null)
-			throw new NullPointerException("newType is null");
+		validateNullVar(newType, "newType");
 		if (newType == PieceType.PAWN || newType == PieceType.KING)
 			throw new PromotionException("You can't promote a Pawn to a " + newType.getValue());
 		Position pos = new Position(getPromotedPiece().getPosition());
@@ -225,10 +228,8 @@ public class Board {
 
 	public Boolean checkIfCastlingIsPossible(King king, Rook rook) {
 		validateBoard();
-		if (king == null)
-			throw new NullPointerException("king is null");
-		if (rook == null)
-			throw new NullPointerException("rook is null");
+		validateNullVar(king, "king");
+		validateNullVar(rook, "rook");
 		if (isOpponentPieces(king, rook))
 			throw new GameException("king and rook must be from the same color");
 		if (king.wasMoved() || rook.wasMoved() || currentColorIsChecked())
@@ -259,8 +260,7 @@ public class Board {
 	}
 	
 	public Boolean isValidBoardPosition(Position position) {
-		if (position == null)
-			throw new NullPointerException("position is null");
+		validateNullVar(position, "position");
 		return position.getColumn() >= 0 && position.getColumn() < 8 &&
 			position.getRow() >= 0 && position.getRow() < 8;
 	}
@@ -276,17 +276,14 @@ public class Board {
 	}
 	
 	public Boolean isOpponentPieces(Piece p1, Piece p2) {
-		if (p1 == null)
-			throw new NullPointerException("p1 is null");
-		if (p2 == null)
-			throw new NullPointerException("p2 is null");
+		validateNullVar(p1, "p1");
+		validateNullVar(p2, "p2");
 		return p1.getColor() != p2.getColor();
 	}
 	
 	public Boolean isOpponentPiece(Position position, PieceColor color) { 
 		validateBoard();
-		if (color == null)
-			throw new NullPointerException("color is null");
+		validateNullVar(color, "color");
 		validatePosition(position, "position");
 		if (isFreeSlot(position))
 			throw new InvalidPositionException("There's no piece on this position");
@@ -325,8 +322,7 @@ public class Board {
 	
 	public PieceColor opponentColor(PieceColor color) { 
 		validateBoard();
-		if (color == null)
-			throw new NullPointerException("color is null");
+		validateNullVar(color, "color");
 		return color == PieceColor.BLACK ? PieceColor.WHITE : PieceColor.BLACK;
 	}
 	
@@ -337,8 +333,7 @@ public class Board {
 	
 	public void addCapturedPiece(Piece piece) {
 		validateBoard();
-		if (piece == null)
-			throw new NullPointerException("piece is null");
+		validateNullVar(piece, "piece");
 		if (capturedPieces.contains(piece))
 			throw new GameException("piece is already on captured pieces list");
 		capturedPieces.add(piece);
@@ -346,8 +341,7 @@ public class Board {
 
 	public void removeCapturedPiece(Piece piece) {
 		validateBoard();
-		if (piece == null)
-			throw new NullPointerException("piece is null");
+		validateNullVar(piece, "piece");
 		if (!capturedPieces.contains(piece))
 			throw new GameException("piece is not on captured pieces list");
 		capturedPieces.remove(piece);
@@ -366,8 +360,7 @@ public class Board {
 	private void addPiece(Position position, Piece piece) { 
 		validateBoard();
 		validatePosition(position, "position");
-		if (piece == null)
-			throw new NullPointerException("piece is null");
+		validateNullVar(piece, "piece");
 		if (!isFreeSlot(position))
 			throw new InvalidPositionException("The slot at this position is not free");
 		board[position.getRow()][position.getColumn()] = piece;
@@ -496,8 +489,7 @@ public class Board {
 	
 	public Boolean pieceCanDoSafeMove(Piece piece) {
 		validateBoard();
-		if (piece == null)
-			throw new NullPointerException("piece is null");
+		validateNullVar(piece, "piece");
 		Board backupBoard = new Board();
 		Position fromPos = new Position(piece.getPosition());
 		cloneBoard(this, backupBoard);
@@ -514,8 +506,7 @@ public class Board {
 
 	public Boolean isChecked(PieceColor color) {
 		validateBoard();
-		if (color == null)
-			throw new NullPointerException("color is null");
+		validateNullVar(color, "color");
 		List<Piece> pieceList = getPieceList(color);
 		for (Piece piece : pieceList)
 			if (piece.getType() == PieceType.KING && pieceColdBeCaptured(piece))
@@ -528,8 +519,7 @@ public class Board {
 	
 	public Boolean checkMate(PieceColor color) {
 		validateBoard();
-		if (color == null)
-			throw new NullPointerException("color is null");
+		validateNullVar(color, "color");
 		Piece king = null;
 		List<Piece> pieceList = getPieceList(color);
 		for (Piece piece : pieceList)
@@ -589,14 +579,11 @@ public class Board {
 		{ return getNewPieceInstance(this, piece); }
 
 	public void addNewPiece(Position position, PieceType type, PieceColor color) throws NullPointerException,InvalidPositionException {
-		if (position == null)
-			throw new NullPointerException("position is null");
+		validateNullVar(position, "position");
 		if (!isValidBoardPosition(position))
 			throw new InvalidPositionException("Invalid board position");
-		if (type == null)
-			throw new NullPointerException("type is null");
-		if (color == null)
-			throw new NullPointerException("color is null");
+		validateNullVar(type, "type");
+		validateNullVar(color, "color");
 		if (!isFreeSlot(position))
 			throw new InvalidPositionException("This board position is not free");
 		Piece piece = getNewPieceInstance(position, type, color);
