@@ -3,6 +3,8 @@ package piece;
 import java.util.List;
 
 import board.Board;
+import enums.PieceColor;
+import enums.PieceType;
 
 public abstract class Piece {
 	
@@ -22,9 +24,15 @@ public abstract class Piece {
 
 	public int getRow()
 		{ return position.getRow(); }
+	
+	public void incRow(int value)
+		{ position.incRow(value); }
 
 	public int getColumn()
 		{ return position.getColumn(); }
+
+	public void incColumn(int value)
+		{ position.incColumn(value); }
 
 	public Position getPosition()
 		{ return position; }
@@ -32,6 +40,9 @@ public abstract class Piece {
 	public void setPosition(Position position)
 		{ this.position = position; }
 	
+	public void setPosition(int row, int column)
+		{ this.position.setValues(row, column); }
+
 	public PieceColor getColor()
 		{ return color; }
 	
@@ -47,11 +58,8 @@ public abstract class Piece {
 	public int getMovedTurns()
 		{ return movedTurns; }
 
-	public void decMovedTurns()	
-		{ movedTurns--; }
-	
-	public void incMovedTurns()	
-		{ movedTurns++; }
+	public void incMovedTurns(int value)	
+		{ movedTurns += value; }
 	
 	public Boolean wasMoved()
 		{ return getMovedTurns() > 0; }
@@ -66,5 +74,11 @@ public abstract class Piece {
 		{ return getPossibleMoves().contains(position); }
 	
 	public abstract List<Position> getPossibleMoves();
+
+	@Override
+	public String toString()
+		{ return "PIECE"; }
+	
+	public char let() { return '-'; }
 
 }

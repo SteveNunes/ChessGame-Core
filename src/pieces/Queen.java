@@ -4,7 +4,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 import board.Board;
-import piece.*;
+import enums.*;
+import piece.Piece;
+import piece.Position;
 
 public class Queen extends Piece  {
 
@@ -28,7 +30,7 @@ public class Queen extends Piece  {
 					(!getBoard().isFreeSlot(p) && !getBoard().isOpponentPiece(p, getColor())))
 					break; 
 				moves.add(new Position(p));
-				if (getBoard().isOpponentPiece(p, getColor()))
+				if (!getBoard().isFreeSlot(p) && getBoard().isOpponentPiece(p, getColor()))
 					break; 
 			}
 		}
@@ -37,6 +39,10 @@ public class Queen extends Piece  {
 
 	@Override
 	public String toString()
-		{ return "Q"; }
+		{ return PieceType.QUEEN.name(); }
+
+	@Override
+	public char let()
+		{ return 'Q'; }
 
 }

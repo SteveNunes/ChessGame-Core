@@ -4,7 +4,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 import board.Board;
-import piece.*;
+import enums.*;
+import piece.Piece;
+import piece.Position;
 
 public class Bishop extends Piece  {
 	
@@ -27,7 +29,7 @@ public class Bishop extends Piece  {
 				if (!getBoard().isValidBoardPosition(p) ||
 						(!getBoard().isFreeSlot(p) && !getBoard().isOpponentPiece(p, getColor()))) break; 
 							moves.add(new Position(p));
-				if (getBoard().isOpponentPiece(p, getColor()))
+				if (!getBoard().isFreeSlot(p) && getBoard().isOpponentPiece(p, getColor()))
 					break; 
 			}
 		}
@@ -36,6 +38,10 @@ public class Bishop extends Piece  {
 	
 	@Override
 	public String toString()
-		{ return "B"; }
+		{ return PieceType.BISHOP.name(); }
 	
+	@Override
+	public char let()
+		{ return 'B'; }
+
 }

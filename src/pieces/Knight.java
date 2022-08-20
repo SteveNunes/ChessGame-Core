@@ -4,7 +4,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 import board.Board;
-import piece.*;
+import enums.*;
+import piece.Piece;
+import piece.Position;
 
 public class Knight extends Piece  {
 
@@ -32,6 +34,10 @@ public class Knight extends Piece  {
 
 	@Override
 	public String toString()
-		{ return "N"; }
+		{ return PieceType.KNIGHT.name(); }
+
+	@Override
+	public char let()
+		{ return 'N'; }
 
 }

@@ -4,9 +4,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 import board.Board;
+import enums.PieceColor;
+import enums.PieceType;
 import piece.Piece;
-import piece.PieceColor;
-import piece.PieceType;
 import piece.Position;
 
 public class King extends Piece  {
@@ -19,8 +19,8 @@ public class King extends Piece  {
 		List<Position> moves = new ArrayList<>();
 		Position p = new Position(getPosition());
 		int[][] inc = {
-			{-1,-1,-1,0,0,1,1,1,0,0},
-			{-1,0,1,-1,1,-1,0,1,1,1}
+			{-1,-1,-1,1,1,1,0,0,0,0},
+			{-1,0,1,-1,0,1,-1,1,1,1}
 		};
 		
 		// Castling special move
@@ -28,7 +28,8 @@ public class King extends Piece  {
 		for (int c = 0; c <= 7; c += 7) {
 			p2.setColumn(c);
 			Piece rook = getBoard().getPieceAt(p2);
-			if (rook != null && getBoard().getSelectedPiece() == this && getBoard().checkIfCastlingIsPossible(this, rook))
+			if (rook != null && getBoard().getSelectedPiece() == this &&
+					rook.getType() == PieceType.ROOK && getBoard().checkIfCastlingIsPossible(this, (Rook)rook))
 				inc[1][c == 0 ? 8 : 9] = c == 0 ? -2 : 2;
 		}
 		
@@ -48,6 +49,10 @@ public class King extends Piece  {
 
 	@Override
 	public String toString()	
-		{ return "K"; }
+		{ return PieceType.KING.name(); }
+
+	@Override
+	public char let()
+		{ return 'K'; }
 
 }
