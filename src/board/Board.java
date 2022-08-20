@@ -207,8 +207,11 @@ public class Board {
 	
 	public Piece getEnPassantPiece() {
 		validateBoard();
-		if (selectedPiece == null || selectedPiece.getType() != PieceType.PAWN)
-			return null;
+		if (enPassantPiece == null ||
+				selectedPiece == null ||
+				selectedPiece.getType() != PieceType.PAWN ||
+				selectedPiece.getColor() == enPassantPiece.getColor())
+					return null;
 		return enPassantPiece;
 	}
 	
@@ -223,7 +226,18 @@ public class Board {
 
 	public Boolean checkEnPassant() {
 		validateBoard();
-		return getEnPassantPiece() != null;
+		if (getSelectedPiece() == null ||
+				getSelectedPiece().getType() != PieceType.PAWN || 
+				getEnPassantPiece() == null ||
+				getEnPassantPiece().getColor() == getSelectedPiece().getColor())
+					return false;
+		for (int x = -1; x <= 1; x += 2) {
+			Position p = getSelectedPiece().getPosition();
+			p.incColumn(x);
+			if (getEnPassantPiece().getPosition().equals(p))
+				return true;
+		}
+		return false;
 	}
 
 	public Boolean checkIfCastlingIsPossible(King king, Rook rook) {
