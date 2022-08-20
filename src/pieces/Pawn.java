@@ -27,10 +27,10 @@ public class Pawn extends Piece {
 			for (int i = -1; row == 1 && i <= 1; i += 2) {
 				p2.setValues(p);
 				p2.incColumn(i);
-				if (getBoard().isOpponentPiece(p2, getColor())) //Tile for En Passant special move
+				if (!getBoard().isFreeSlot(p2) && getBoard().isOpponentPiece(p2, getColor())) //Tile for En Passant special move
 					moves.add(new Position(p2));
 			}
-			if (!getBoard().isValidBoardPosition(p) || !getBoard().isFreeSlot(p))
+			if (!getBoard().isFreeSlot(p))
 				break;
 			moves.add(new Position(p));
 		}

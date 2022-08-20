@@ -138,7 +138,7 @@ public class Board {
 	private void validatePosition(Position position, String varName) throws NullPointerException,InvalidPositionException {
 		validateNullVar(position, varName);
 		if (!isValidBoardPosition(position))
-			throw new InvalidPositionException(varName + " - Invalid board position");
+			throw new InvalidPositionException(varName + " " + position + " - Invalid board position");
 	}
 	
 	private <T> void validateNullVar(T var, String varName) throws NullPointerException {
@@ -266,13 +266,13 @@ public class Board {
 	}
 	
 	public Boolean isFreeSlot(Position position) {
-		validatePosition(position, "position");
+		validateNullVar(position, "position");
 		return isValidBoardPosition(position) && getPieceAt(position) == null;
 	}
 	
 	public Piece getPieceAt(Position position) {
-		validatePosition(position, "position");
-		return board[position.getRow()][position.getColumn()];
+		validateNullVar(position, "position");
+		return !isValidBoardPosition(position) ? null : board[position.getRow()][position.getColumn()];
 	}
 	
 	public Boolean isOpponentPieces(Piece p1, Piece p2) {
@@ -284,18 +284,12 @@ public class Board {
 	public Boolean isOpponentPiece(Position position, PieceColor color) { 
 		validateBoard();
 		validateNullVar(color, "color");
-		validatePosition(position, "position");
-		if (isFreeSlot(position))
-			throw new InvalidPositionException("There's no piece on this position");
-		return getPieceAt(position).getColor() != color;
+		return isValidBoardPosition(position) && !isFreeSlot(position) && getPieceAt(position).getColor() != color;
 	}
 	
 	public Boolean isOpponentPiece(Position position) {
 		validateBoard();
-		validatePosition(position, "position");
-		if (isFreeSlot(position))
-			throw new InvalidPositionException("There's no piece on this position");
-		return isOpponentPiece(position, getCurrentColorTurn());
+		return getPieceAt(position) != null && isOpponentPiece(position, getCurrentColorTurn());
 	}
 
 	public Piece getSelectedPiece() {
