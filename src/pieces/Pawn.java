@@ -34,8 +34,8 @@ public class Pawn extends Piece {
 				break;
 			moves.add(new PiecePosition(p));
 		}
-		if (getBoard().getSelectedPiece() == this && getBoard().checkEnPassant())
-			moves.add(new PiecePosition(getBoard().getEnPassantCapturePosition()));
+		if (getBoard().checkEnPassant(this))
+			moves.add(new PiecePosition(getBoard().getEnPassantCapturePosition(this)));
 		return moves;
 	}
 

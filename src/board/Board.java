@@ -205,36 +205,36 @@ public class Board {
 		changeTurn();
 	}
 	
-	public Piece getEnPassantPiece() {
+	public Piece getEnPassantPiece(Piece piece) {
 		validateBoard();
 		if (enPassantPiece == null ||
-				selectedPiece == null ||
-				selectedPiece.getType() != PieceType.PAWN ||
-				selectedPiece.getColor() == enPassantPiece.getColor())
+				piece == null ||
+				piece.getType() != PieceType.PAWN ||
+				piece.getColor() == enPassantPiece.getColor())
 					return null;
 		return enPassantPiece;
 	}
 	
-	public PiecePosition getEnPassantCapturePosition() {
+	public PiecePosition getEnPassantCapturePosition(Piece piece) {
 		validateBoard();
-		if (!checkEnPassant())
+		if (!checkEnPassant(piece))
 			return null;
-		PiecePosition position = new PiecePosition(getEnPassantPiece().getPosition());
-		position.incRow(getEnPassantPiece().getColor() == PieceColor.WHITE ? -1 : -1);
+		PiecePosition position = new PiecePosition(getEnPassantPiece(piece).getPosition());
+		position.incRow(getEnPassantPiece(piece).getColor() == PieceColor.WHITE ? -1 : 1);
 		return position;
 	}
 
-	public Boolean checkEnPassant() {
+	public Boolean checkEnPassant(Piece piece) {
 		validateBoard();
-		if (getSelectedPiece() == null ||
-				getSelectedPiece().getType() != PieceType.PAWN || 
-				getEnPassantPiece() == null ||
-				getEnPassantPiece().getColor() == getSelectedPiece().getColor())
+		if (piece == null ||
+				piece.getType() != PieceType.PAWN || 
+				getEnPassantPiece(piece) == null ||
+				getEnPassantPiece(piece).getColor() == piece.getColor())
 					return false;
 		for (int x = -1; x <= 1; x += 2) {
-			PiecePosition p = new PiecePosition(getSelectedPiece().getPosition());
+			PiecePosition p = new PiecePosition(piece.getPosition());
 			p.incColumn(x);
-			if (getEnPassantPiece().getPosition().equals(p))
+			if (getEnPassantPiece(piece).getPosition().equals(p))
 				return true;
 		}
 		return false;
@@ -438,8 +438,8 @@ public class Board {
 
 		removePiece(sourcePos);
 		
-		if (checkEnPassant() && getEnPassantCapturePosition().equals(targetPos))
-			targetPiece = getEnPassantPiece(); // Verifica se o peão atual realizou um movimento de captura EnPassant
+		if (checkEnPassant(selectedPiece) && getEnPassantCapturePosition(selectedPiece).equals(targetPos))
+			targetPiece = getEnPassantPiece(selectedPiece); // Verifica se o peão atual realizou um movimento de captura EnPassant
 		enPassantPiece = null;
 
 		if (sourcePiece.getType() == PieceType.PAWN &&
