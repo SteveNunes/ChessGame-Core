@@ -29,6 +29,8 @@ public class Board {
 	private static List<Board> undoBoards = new ArrayList<>();
 	private static int undoIndex = -1;
 	
+	private Boolean lastMoveWasEnPassant;
+	private Boolean lastMoveWasCastling;
 	private Boolean blackKingWasAdded;
 	private Boolean whiteKingWasAdded;
 	private Boolean atLeastTwoBlackPiecesAdded;
@@ -45,6 +47,8 @@ public class Board {
 		whiteKingWasAdded = false;
 		atLeastTwoBlackPiecesAdded = false;
 		atLeastTwoWhitePiecesAdded = false;
+		lastMoveWasEnPassant = false;
+		lastMoveWasCastling = false;
 		board = new Piece[8][8];
 		capturedPieces = new ArrayList<>();
 		reset(); 
@@ -60,6 +64,8 @@ public class Board {
 			for (int x = 0; x < sourceBoard.board[y].length; x++)
 				if ((targetBoard.board[y][x] = sourceBoard.board[y][x]) != null)
 					targetBoard.board[y][x].setPosition(y, x);
+		targetBoard.lastMoveWasEnPassant = sourceBoard.lastMoveWasEnPassant;
+		targetBoard.lastMoveWasCastling = sourceBoard.lastMoveWasCastling;
 		targetBoard.selectedPiece = sourceBoard.selectedPiece;
 		targetBoard.enPassantPiece = sourceBoard.enPassantPiece;
 		targetBoard.blackKingWasAdded = sourceBoard.blackKingWasAdded;
@@ -70,6 +76,12 @@ public class Board {
 		targetBoard.capturedPieces = new ArrayList<>(sourceBoard.capturedPieces);
 		targetBoard.turns = sourceBoard.turns;
 	}
+
+	public Boolean lastMoveWasEnPassant()
+		{ return lastMoveWasEnPassant; }
+
+	public Boolean lastMoveWasCastling()
+		{ return lastMoveWasCastling; }
 
 	public static void resetUndoMoves()
 		{ undoBoards.clear(); }
@@ -415,7 +427,8 @@ public class Board {
 		Boolean checked = currentColorIsChecked();
 		Piece sourcePiece = getPieceAt(sourcePos);
 		Piece targetPiece = getPieceAt(targetPos);
-		
+		lastMoveWasCastling = lastMoveWasEnPassant = false;
+
 		if (!sourcePiece.canMoveToPosition(targetPos)) {
 			if (justTesting)
 				return null;
@@ -434,12 +447,17 @@ public class Board {
 			rookPosition = new PiecePosition(targetPos);
 			rookPosition.incColumn(rookAtLeft ? 1 : -1);
 			addNewPiece(rookPosition, (Rook) getPieceAt(rookPosition));
+			if (!justTesting)
+				lastMoveWasCastling = true;
 		}
 
 		removePiece(sourcePos);
 		
-		if (checkEnPassant(selectedPiece) && getEnPassantCapturePosition(selectedPiece).equals(targetPos))
+		if (checkEnPassant(selectedPiece) && getEnPassantCapturePosition(selectedPiece).equals(targetPos)) {
+			if (!justTesting)
+				lastMoveWasEnPassant = true;
 			targetPiece = getEnPassantPiece(selectedPiece); // Verifica se o peão atual realizou um movimento de captura EnPassant
+		}
 		enPassantPiece = null;
 
 		if (sourcePiece.getType() == PieceType.PAWN &&
