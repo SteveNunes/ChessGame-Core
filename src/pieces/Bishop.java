@@ -41,7 +41,7 @@ public class Bishop extends Piece  {
 		{ return PieceType.BISHOP.name(); }
 	
 	@Override
-	public String let()
-	{ return "B"; }
+	public char let()
+		{ return PieceType.BISHOP.getLet(); }
 
 }

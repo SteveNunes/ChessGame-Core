@@ -24,13 +24,19 @@ public class King extends Piece  {
 		};
 		
 		// Castling special move
-		PiecePosition p2 = new PiecePosition(getPosition());
-		for (int c = 0; c <= 7; c += 7) {
-			p2.setColumn(c);
-			Piece rook = getBoard().getPieceAt(p2);
-			if (rook != null && getBoard().getSelectedPiece() == this &&
-					rook.getType() == PieceType.ROOK && getBoard().checkIfCastlingIsPossible(this, (Rook)rook))
-				inc[1][c == 0 ? 8 : 9] = c == 0 ? -2 : 2;
+		if (!wasMoved()) {
+			PiecePosition p2 = new PiecePosition(getPosition());
+			for (int c = 0; c <= 7; c += 7) {
+				p2.setColumn(c);
+				if (getBoard().getPieceAt(p2) != null &&
+						getBoard().getPieceAt(p2).getColor() == getColor() &&
+						getBoard().getPieceAt(p2).getType() == PieceType.ROOK)
+							do 
+								p2.incColumn(c == 0 ? 1 : -1);
+							while (getBoard().isFreeSlot(p2));
+							if (p2.equals(getPosition()))
+								inc[1][c == 0 ? 8 : 9] = c == 0 ? -2 : 2;
+			}
 		}
 		
 		/* 10 directions check (9th and 10th is for castling special move
@@ -52,7 +58,7 @@ public class King extends Piece  {
 		{ return PieceType.KING.name(); }
 
 	@Override
-	public String let()
-		{ return "K"; }
+	public char let()
+		{ return PieceType.KING.getLet(); }
 
 }

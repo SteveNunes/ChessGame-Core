@@ -42,7 +42,7 @@ public class Queen extends Piece  {
 		{ return PieceType.QUEEN.name(); }
 
 	@Override
-	public String let()
-		{ return "Q"; }
+	public char let()
+		{ return PieceType.QUEEN.getLet(); }
 
 }

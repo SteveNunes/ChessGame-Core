@@ -58,6 +58,9 @@ public abstract class Piece {
 	public int getMovedTurns()
 		{ return movedTurns; }
 
+	public void setMovedTurns(int value)	
+		{ movedTurns = value; }
+
 	public void incMovedTurns(int value)	
 		{ movedTurns += value; }
 	
@@ -79,7 +82,7 @@ public abstract class Piece {
 	public String toString()
 		{ return "PIECE"; }
 	
-	public String let()
-		{ return "-"; }
+	public char let()
+		{ return '-'; }
 
 }

@@ -44,7 +44,7 @@ public class Pawn extends Piece {
 		{ return PieceType.PAWN.name(); }
 
 	@Override
-	public String let()
-		{ return "P"; }
+	public char let()
+		{ return PieceType.PAWN.getLet(); }
 
 }
