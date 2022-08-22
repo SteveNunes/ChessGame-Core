@@ -221,7 +221,7 @@ public class Board {
 	public List<Piece> getPieceList()
 		{ return getPieceList(null); }
 	
-	public void resetBoard(Piece[][] board) { 
+	private void resetBoard(Piece[][] board) { 
 		for (Piece[] b : board)
 			Arrays.fill(b, null);
 	}
@@ -301,7 +301,7 @@ public class Board {
 		return false;
 	}
 
-	public Rook checkCastling(PiecePosition kingPositionSource, PiecePosition kingPositionTarget) {
+	private Rook checkCastling(PiecePosition kingPositionSource, PiecePosition kingPositionTarget) {
 		checkIfBoardWasValidated();
 		validateNullVar(kingPositionSource, "kingPositionSource");
 		validateNullVar(kingPositionTarget, "kingPositionTarget");
@@ -426,7 +426,7 @@ public class Board {
 		return opponentColor(getCurrentColorTurn());
 	}
 	
-	public void addCapturedPiece(Piece piece) {
+	private void addCapturedPiece(Piece piece) {
 		checkIfBoardWasValidated();
 		validateNullVar(piece, "piece");
 		if (capturedPieces.contains(piece))
@@ -434,14 +434,6 @@ public class Board {
 		capturedPieces.add(piece);
 	}
 
-	public void removeCapturedPiece(Piece piece) {
-		checkIfBoardWasValidated();
-		validateNullVar(piece, "piece");
-		if (!capturedPieces.contains(piece))
-			throw new GameException("piece is not on captured pieces list");
-		capturedPieces.remove(piece);
-	}
-	
 	public List<Piece> getCapturedPieces(PieceColor color) {
 		checkIfBoardWasValidated();
 		return capturedPieces.stream()
@@ -462,7 +454,7 @@ public class Board {
 		piece.setPosition(position);
 	}
 
-	public void removePiece(PiecePosition position) { 
+	private void removePiece(PiecePosition position) { 
 		checkIfBoardWasValidated();
 		validatePosition(position, "position");
 		if (isFreeSlot(position))
@@ -577,9 +569,6 @@ public class Board {
 	}
 
 	private void changeTurn() {
-		checkIfBoardWasValidated();
-		if (pieceWasPromoted())
-			throw new GameException("You must promote the pawn");
 		turns++;
 		selectedPiece = null;
 		currentColorTurn = opponentColor();
@@ -588,27 +577,29 @@ public class Board {
 	public Piece movePieceTo(PiecePosition targetPos) throws BoardException 
 		{ return movePieceTo(getSelectedPiece().getPosition(), targetPos, false); }
 	
-	public Boolean pieceColdBeCaptured(PiecePosition position, PieceColor color) {
+	public Boolean pieceColdBeCaptured(Piece piece) {
 		checkIfBoardWasValidated();
-		validatePosition(position, "position");
-		List<Piece> opponentPieceList = getPieceList(color == PieceColor.BLACK ? PieceColor.WHITE : PieceColor.BLACK);
-		for (Piece opponentPiece : opponentPieceList)
-			if (opponentPiece.getPossibleMoves().contains(position))
+		validateNullVar(piece, "piece");
+		for (Piece opponentPiece : getPieceList(opponentColor(piece.getColor())))
+			if (opponentPiece.getPossibleMoves().contains(piece.getPosition()))
 				return true;
 		return false;
 	}
 	
-	public Boolean pieceColdBeCaptured(Piece piece)
-		{ return pieceColdBeCaptured(piece.getPosition(), piece.getColor()); }
+	public Boolean pieceColdBeCaptured(PiecePosition position) {
+		checkIfBoardWasValidated();
+		validatePosition(position, "position");
+		if (getPieceAt(position) == null)
+			throw new InvalidPositionException(position + " - There is no piece");
+		return pieceColdBeCaptured(getPieceAt(position));
+	}
 	
-	private Boolean pieceCanDoSafeMove(Piece piece, PiecePosition extraPos) {
+	public Boolean pieceCanDoSafeMove(Piece piece) {
 		checkIfBoardWasValidated();
 		validateNullVar(piece, "piece");
 		Board backupBoard = newClonedBoard();
 		PiecePosition fromPos = new PiecePosition(piece.getPosition());
 		List<PiecePosition> possibleMoves = new ArrayList<>(piece.getPossibleMoves());
-		if (extraPos != null)
-			possibleMoves.add(extraPos);
 		for (PiecePosition myPos : possibleMoves) {
 			movePieceTo(fromPos, myPos, true);
 			if (!pieceColdBeCaptured(piece) && !isChecked(piece.getColor())) {
@@ -619,9 +610,17 @@ public class Board {
 		}			
 		return false;
 	}
+	
+	public Boolean pieceCanDoSafeMove(PiecePosition position) {
+		checkIfBoardWasValidated();
+		validatePosition(position, "position");
+		if (getPieceAt(position) == null)
+			throw new InvalidPositionException(position + " - There is no piece");
+		return pieceCanDoSafeMove(getPieceAt(position));
+	}
 
-	public Boolean pieceCanDoSafeMove(Piece piece)
-		{ return pieceCanDoSafeMove(piece, null); }
+	public Boolean isGameOver()
+		{ return checkMate() || drawGame(); }
 
 	public Boolean isChecked(PieceColor color) {
 		checkIfBoardWasValidated();
@@ -676,16 +675,10 @@ public class Board {
 			return new Pawn(board, position, color);
 	}
 	
-	public Piece getNewPieceInstance(PiecePosition position, PieceType type, PieceColor color)
+	private Piece getNewPieceInstance(PiecePosition position, PieceType type, PieceColor color)
 		{ return getNewPieceInstance(this, position, type, color); }
 	
-	public Piece getNewPieceInstance(Board board, Piece piece)
-		{ return getNewPieceInstance(board, piece.getPosition(), piece.getType(), piece.getColor()); }
-
-	public Piece getNewPieceInstance(Piece piece)
-		{ return getNewPieceInstance(this, piece); }
-
-	public void addNewPiece(PiecePosition position, PieceType type, PieceColor color) throws NullPointerException,InvalidPositionException,BoardException {
+	private void addNewPiece(PiecePosition position, PieceType type, PieceColor color) throws NullPointerException,InvalidPositionException,BoardException {
 		validateNullVar(position, "position");
 		if (!isValidBoardPosition(position))
 			throw new InvalidPositionException("Invalid board position");
