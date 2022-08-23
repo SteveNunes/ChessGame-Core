@@ -605,116 +605,159 @@ public class Board {
 		Piece lastTriedPiece = null;
 		PiecePosition lastTriedPosition = null;
 		Map<Piece, List<PiecePosition>> ignorePositions = new HashMap<>();
+		List<Piece> ignoredPieces = new ArrayList<>();
+		int triedVal = -1;
+		Boolean debug = true;
+		cpuSelectedPositionToMove = null;
 
 		while (true)
 			try {
-			// Tenta capturar uma pedra adversária sem que a posição onde a pedra vá parar, permita que ela possa ser capturada logo em seguida
-			for (PieceType type : PieceType.getListOfAll())
-				for (Piece piece : getPieceList(getCurrentColorTurn())) {
-					if (piece.getType() == type) {
-						for (Piece opponentPiece : getPieceList(opponentColor()))
-							if ((!ignorePositions.containsKey(piece) || !ignorePositions.get(piece).contains(opponentPiece.getPosition())) &&
-									piece.getPossibleMoves().contains(opponentPiece.getPosition())) {
-										lastTriedPiece = piece;
-										lastTriedPosition = opponentPiece.getPosition();
-										movePieceTo(piece.getPosition(), opponentPiece.getPosition(), false);
-										if (!pieceColdBeCaptured(piece)) {
+				// Tenta capturar uma pedra adversária sem que a posição onde a pedra vá parar, permita que ela possa ser capturada logo em seguida
+				triedVal = 1;
+				for (PieceType type : PieceType.getListOfAll())
+					for (Piece piece : getPieceList(getCurrentColorTurn())) {
+						if (piece.getType() == type && !ignoredPieces.contains(piece)) {
+							ignoredPieces.add(piece);
+							for (Piece opponentPiece : getPieceList(opponentColor()))
+								if ((!ignorePositions.containsKey(piece) ||
+										!ignorePositions.get(piece).contains(opponentPiece.getPosition())) &&
+										piece.getPossibleMoves().contains(opponentPiece.getPosition())) {
+											lastTriedPiece = piece;
+											lastTriedPosition = opponentPiece.getPosition();
+											movePieceTo(piece.getPosition(), opponentPiece.getPosition(), true);
+											if (!pieceColdBeCaptured(piece)) {
+												triedVal = 2;
+												cloneBoard(recBoard, this);
+												cpuSelectedPositionToMove = new PiecePosition(opponentPiece.getPosition());
+												selectedPiece = piece;
+												return;
+											}
 											cloneBoard(recBoard, this);
-											cpuSelectedPositionToMove = new PiecePosition(opponentPiece.getPosition());
-											selectedPiece = piece;
-											return;
-										}
-										cloneBoard(recBoard, this);
-										// Se ao tentar capturar, a pedra da CPU poder ser capturada, e ao retornar para a posicao incial, também possa ser capturada ,tentar mover essa pedra para um tile seguro
-										if (pieceColdBeCaptured(piece)) {
-											for (PiecePosition position : piece.getPossibleMoves())
-												if ((!ignorePositions.containsKey(piece) || !ignorePositions.get(piece).contains(position))) {
-													lastTriedPiece = piece;
-													lastTriedPosition = position;
-													movePieceTo(piece.getPosition(), position, false);
-													if (!pieceColdBeCaptured(piece)) {
-														cloneBoard(recBoard, this);
-														cpuSelectedPositionToMove = new PiecePosition(position);
-														selectedPiece = piece;
-														return;
-													}
-													cloneBoard(recBoard, this);
-												}
-										}
-							}
+								}
+						}
 					}
-				}
 	
-			// Tenta capturar uma pedra adversária COM UM PEAO, mesmo que essa pedra possa ser capturada logo em seguida
-			for (Piece piece : getPieceList(getCurrentColorTurn()))
-				if (piece.getType() == PieceType.PAWN)
+				triedVal = 5;
+				// Tenta capturar uma pedra adversária com qualquer pedra se o ALVO for uma pedra que não seja um peão, mesmo que essa pedra possa ser capturada logo em seguida
+				for (Piece piece : getPieceList(getCurrentColorTurn()))
 					for (Piece opponentPiece : getPieceList(opponentColor()))
-						if ((!ignorePositions.containsKey(piece) || !ignorePositions.get(piece).contains(opponentPiece.getPosition())) &&
-								piece.getPossibleMoves().contains(opponentPiece.getPosition())) {
+						if (opponentPiece.getType() != PieceType.PAWN &&
+								piece.getPossibleMoves().contains(opponentPiece.getPosition()) &&
+								(!ignorePositions.containsKey(piece) ||
+								 !ignorePositions.get(piece).contains(opponentPiece.getPosition()))) {
+									triedVal = 6;
 									lastTriedPiece = piece;
 									lastTriedPosition = opponentPiece.getPosition();
-									movePieceTo(piece.getPosition(), opponentPiece.getPosition(), false);
-									cloneBoard(recBoard, this);
 									cpuSelectedPositionToMove = new PiecePosition(opponentPiece.getPosition());
 									selectedPiece = piece;
 									return;
 						}
 	
-			// Tenta mover um peão 2 casas para frente (se for a primeira movimentacao do peao) sem que ele possa ser capturado logo em seguida
-			for (Piece piece : getPieceList(getCurrentColorTurn()))
-				if (piece.getType() == PieceType.PAWN) {
-					for (PiecePosition position : piece.getPossibleMoves())
-						if ((!ignorePositions.containsKey(piece) || !ignorePositions.get(piece).contains(position)) &&
-								Math.abs(piece.getRow() - position.getRow()) == 2) {
-									lastTriedPiece = piece;
-									lastTriedPosition = position;
-									movePieceTo(piece.getPosition(), position, true);
-									if (!pieceColdBeCaptured(piece)) {
-										cloneBoard(recBoard, this);
-										cpuSelectedPositionToMove = new PiecePosition(position);
-										selectedPiece = piece;
-										return;
-									}
-									cloneBoard(recBoard, this);
-						}
-					}
-	
-			// Tenta mover a pedra para um tile seguro no turno seguinte ao movimento
-			for (PieceType type : PieceType.getListOfAll())
+				triedVal = 7;
+				// Tenta capturar uma pedra adversária COM UM PEAO, mesmo que essa pedra possa ser capturada logo em seguida
 				for (Piece piece : getPieceList(getCurrentColorTurn()))
-					if (piece.getType() == type) {
-						for (PiecePosition position : piece.getPossibleMoves())
-							if ((!ignorePositions.containsKey(piece) || !ignorePositions.get(piece).contains(position))) {
-								lastTriedPiece = piece;
-								lastTriedPosition = position;
-								movePieceTo(piece.getPosition(), position, true);
-								if (!pieceColdBeCaptured(piece)) {
-									cloneBoard(recBoard, this);
-									cpuSelectedPositionToMove = new PiecePosition(position);
-									selectedPiece = piece;
-									return;
-								}
-								cloneBoard(recBoard, this);
-							}
-					}
-	
-			// Tenta capturar uma pedra adversária mesmo que essa pedra possa ser capturada logo em seguida
-			for (PieceType type : PieceType.getListOfAll())
-				for (Piece piece : getPieceList(getCurrentColorTurn()))
-					if (piece.getType() == type)
+					if (piece.getType() == PieceType.PAWN)
 						for (Piece opponentPiece : getPieceList(opponentColor()))
-							if ((!ignorePositions.containsKey(piece) || !ignorePositions.get(piece).contains(opponentPiece.getPosition())) &&
+							if ((!ignorePositions.containsKey(piece) ||
+									!ignorePositions.get(piece).contains(opponentPiece.getPosition())) &&
 									piece.getPossibleMoves().contains(opponentPiece.getPosition())) {
+										triedVal = 8;
 										lastTriedPiece = piece;
 										lastTriedPosition = opponentPiece.getPosition();
-										movePieceTo(piece.getPosition(), opponentPiece.getPosition(), false);
-										cloneBoard(recBoard, this);
 										cpuSelectedPositionToMove = new PiecePosition(opponentPiece.getPosition());
 										selectedPiece = piece;
 										return;
 							}
+		
+				triedVal = 9;
+				// Tenta mover um peão 2 casas para frente, nas colunas do meio, se for seguro fazer isso
+				for (Piece piece : getPieceList(getCurrentColorTurn()))
+					if (piece.getType() == PieceType.PAWN && !piece.wasMoved() &&
+							(piece.getColumn() == 3 || piece.getColumn() == 4)) {
+								PiecePosition position = new PiecePosition(piece.getPosition());
+								position.incRow(piece.getColor() == PieceColor.BLACK ? -2 : 2);
+								if ((!ignorePositions.containsKey(piece) ||
+										!ignorePositions.get(piece).contains(position)) &&
+										piece.canMoveToPosition(position)) {
+											movePieceTo(piece.getPosition(), position, true);
+											if (!pieceColdBeCaptured(position)) {
+												triedVal = 10;
+												cloneBoard(recBoard, this);
+												cpuSelectedPositionToMove = position;
+												selectedPiece = piece;
+												return;
+											}
+											cloneBoard(recBoard, this);
+								}
+							}
+	
+				triedVal = 11;
+				// Tenta mover um peão 2 casas para frente, (se for a primeira movimentacao do peao) sem que ele possa ser capturado logo em seguida
+				for (Piece piece : getPieceList(getCurrentColorTurn()))
+					if (piece.getType() == PieceType.PAWN) {
+						for (PiecePosition position : piece.getPossibleMoves())
+							if ((!ignorePositions.containsKey(piece) || !ignorePositions.get(piece).contains(position)) &&
+									Math.abs(piece.getRow() - position.getRow()) == 2) {
+										movePieceTo(piece.getPosition(), position, true);
+										if (!pieceColdBeCaptured(position)) { 
+											triedVal = 12;
+											lastTriedPiece = piece;
+											lastTriedPosition = position;
+											cloneBoard(recBoard, this);
+											cpuSelectedPositionToMove = position;
+											selectedPiece = piece;
+											return;
+										}
+										cloneBoard(recBoard, this);
+							}
+						}
+	
+				triedVal = 13;
+				// Tenta mover a pedra para um tile seguro no turno seguinte ao movimento
+				for (PieceType type : PieceType.getListOfAll())
+					for (Piece piece : getPieceList(getCurrentColorTurn()))
+						if (piece.getType() == type) {
+							for (PiecePosition position : piece.getPossibleMoves())
+								if ((!ignorePositions.containsKey(piece) || !ignorePositions.get(piece).contains(position))) {
+									lastTriedPiece = piece;
+									lastTriedPosition = position;
+									movePieceTo(piece.getPosition(), position, true);
+									if (!pieceColdBeCaptured(piece)) {
+										triedVal = 14;
+										cloneBoard(recBoard, this);
+										cpuSelectedPositionToMove = position;
+										selectedPiece = piece;
+										return;
+									}
+									cloneBoard(recBoard, this);
+								}
+						}
+		
+				triedVal = 15;
+				// Tenta capturar uma pedra adversária mesmo que essa pedra possa ser capturada logo em seguida
+				for (PieceType type : PieceType.getListOfAll())
+					for (Piece piece : getPieceList(getCurrentColorTurn()))
+						if (piece.getType() == type)
+							for (Piece opponentPiece : getPieceList(opponentColor()))
+								if ((!ignorePositions.containsKey(piece) || !ignorePositions.get(piece).contains(opponentPiece.getPosition())) &&
+										piece.getPossibleMoves().contains(opponentPiece.getPosition())) {
+											triedVal = 16;
+											lastTriedPiece = piece;
+											lastTriedPosition = opponentPiece.getPosition();
+											cpuSelectedPositionToMove = new PiecePosition(opponentPiece.getPosition());
+											selectedPiece = piece;
+											return;
+								}
 			}
 			catch (Exception e) {
+				if (debug) {
+					System.out.println("\nAI DEBUG:\ntriedVal: " + triedVal);
+					System.out.println("lastTriedPiece at: " + (lastTriedPiece == null ? null : lastTriedPiece.getPosition()));
+					System.out.println("lastTriedPosition: " + (lastTriedPosition == null ? null : lastTriedPosition));
+					System.out.println("selectedPiece at: " + (selectedPiece == null ? null : selectedPiece.getPosition()));
+					System.out.println("cpuSelectedPositionToMove: " + (cpuSelectedPositionToMove == null ? null : cpuSelectedPositionToMove));
+					System.out.println(e.getMessage());
+				}
 				cloneBoard(recBoard, this);
 				if (!ignorePositions.containsKey(lastTriedPiece))
 					ignorePositions.put(lastTriedPiece, new ArrayList<>());

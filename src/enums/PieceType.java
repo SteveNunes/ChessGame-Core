@@ -4,12 +4,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 public enum PieceType {
-	PAWN(1),
-	KNIGHT(2),
-	ROOK(3),
-	BISHOP(4),
-	QUEEN(5),
-	KING(6);
+	KING(1),
+	KNIGHT(3),
+	ROOK(4),
+	BISHOP(5),
+	QUEEN(6),
+	PAWN(2);
 	
 	private final int value;
 
@@ -22,10 +22,10 @@ public enum PieceType {
 	public static List<PieceType> getListOfAll() {
 		List<PieceType> list = new ArrayList<>();
 		list.add(PAWN);
-		list.add(KNIGHT);
-		list.add(ROOK);
-		list.add(BISHOP);
 		list.add(QUEEN);
+		list.add(BISHOP);
+		list.add(ROOK);
+		list.add(KNIGHT);
 		list.add(KING);
 		return list;
 	}
