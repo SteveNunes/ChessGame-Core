@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
+import enums.ChessPlayMode;
 import enums.PieceColor;
 import enums.PieceType;
 import exceptions.BoardException;
@@ -32,6 +33,7 @@ public class Board {
 	private static List<Board> undoBoards = new ArrayList<>();
 	private static int undoIndex = -1;
 	
+	private ChessPlayMode playMode;
 	private Map<Piece, Integer> movedTurns;
 	private Boolean lastMoveWasEnPassant;
 	private Boolean lastMoveWasCastling;
@@ -42,6 +44,7 @@ public class Board {
 	private Piece enPassantPiece;
 	private Piece lastCapturedPiece;
 	private Piece promotedPiece;
+	private PiecePosition cpuSelectedPositionToMove;
 	private PieceColor currentColorTurn;
 	private Boolean boardWasValidated;
 	
@@ -49,6 +52,7 @@ public class Board {
 		board = new Piece[8][8];
 		capturedPieces = new ArrayList<>();
 		movedTurns = new HashMap<>();
+		playMode = ChessPlayMode.PLAYER_VS_PLAYER;
 		reset(); 
 	}
 	
@@ -62,6 +66,7 @@ public class Board {
 			for (int x = 0; x < sourceBoard.board[y].length; x++)
 				if ((targetBoard.board[y][x] = sourceBoard.board[y][x]) != null)
 					targetBoard.board[y][x].setPosition(y, x);
+		targetBoard.cpuSelectedPositionToMove = sourceBoard.cpuSelectedPositionToMove;
 		targetBoard.promotedPiece = sourceBoard.promotedPiece;
 		targetBoard.boardWasValidated = sourceBoard.boardWasValidated;
 		targetBoard.lastCapturedPiece = sourceBoard.lastCapturedPiece;
@@ -143,6 +148,7 @@ public class Board {
 		lastMoveWasEnPassant = false;
 		lastMoveWasCastling = false;
 		lastCapturedPiece = null;
+		cpuSelectedPositionToMove = null;
 		selectedPiece = null;
 		enPassantPiece = null;
 		promotedPiece = null;
@@ -151,7 +157,18 @@ public class Board {
 		movedTurns.clear();
 		resetBoard(board);
 	}
+	
+	public void setPlayMode(ChessPlayMode mode) {
+		if (boardWasValidated)
+			throw new BoardException("You can't do it after validated the board. Call this metod before validating the board.");
+		this.playMode = mode;
+	}
 
+	public Boolean isCpuTurn() {
+		return playMode != ChessPlayMode.PLAYER_VS_PLAYER &&
+			(playMode == ChessPlayMode.CPU_VS_CPU || currentColorTurn == PieceColor.WHITE); 
+	}
+	
 	private Boolean checkPieceCount(PieceType type, PieceColor color, Predicate<Long> predicate)
 		{ return predicate.test(getPieceList(color).stream().filter(p -> type == null || p.getType() == type).count()); }
 
@@ -402,6 +419,8 @@ public class Board {
 	public Piece selectPiece(PiecePosition position) throws BoardException,InvalidPositionException,PieceSelectionException {
 		checkIfBoardWasValidated();
 		validatePosition(position, "position");
+		if (isCpuTurn())
+			throw new PieceSelectionException("It's CPU turn! Wait...");
 		if (checkMate())
 			throw new PieceSelectionException("The current game is ended (Checkmate)");
 		if (drawGame())
@@ -567,6 +586,167 @@ public class Board {
 		
 		return targetPiece;
 	}
+	
+	public Piece movePieceTo(PiecePosition targetPos) throws BoardException {
+		if (!pieceIsSelected())
+			throw new PieceSelectionException("There's no selected piece to move!");
+		return movePieceTo(getSelectedPiece().getPosition(), targetPos, false);
+	}
+	
+	public void doCpuSelectAPiece() throws GameException {
+		if (playMode == ChessPlayMode.PLAYER_VS_PLAYER)
+			throw new GameException("Unable to use while in a PLAYER VS PLAYER mode.");
+		if (!isCpuTurn())
+			throw new GameException("It's not the CPU turn.");
+		if (selectedPiece != null)
+			throw new GameException("CPU already selected a piece. Call \".doCpuMoveSelectedPiece()\" for finish the CPU move.");
+		
+		Board recBoard = newClonedBoard();
+		Piece lastTriedPiece = null;
+		PiecePosition lastTriedPosition = null;
+		Map<Piece, List<PiecePosition>> ignorePositions = new HashMap<>();
+
+		while (true)
+			try {
+			// Tenta capturar uma pedra adversária sem que a posição onde a pedra vá parar, permita que ela possa ser capturada logo em seguida
+			for (PieceType type : PieceType.getListOfAll())
+				for (Piece piece : getPieceList(getCurrentColorTurn())) {
+					if (piece.getType() == type) {
+						for (Piece opponentPiece : getPieceList(opponentColor()))
+							if ((!ignorePositions.containsKey(piece) || !ignorePositions.get(piece).contains(opponentPiece.getPosition())) &&
+									piece.getPossibleMoves().contains(opponentPiece.getPosition())) {
+										lastTriedPiece = piece;
+										lastTriedPosition = opponentPiece.getPosition();
+										movePieceTo(piece.getPosition(), opponentPiece.getPosition(), false);
+										if (!pieceColdBeCaptured(piece)) {
+											cloneBoard(recBoard, this);
+											cpuSelectedPositionToMove = new PiecePosition(opponentPiece.getPosition());
+											selectedPiece = piece;
+											return;
+										}
+										cloneBoard(recBoard, this);
+										// Se ao tentar capturar, a pedra da CPU poder ser capturada, e ao retornar para a posicao incial, também possa ser capturada ,tentar mover essa pedra para um tile seguro
+										if (pieceColdBeCaptured(piece)) {
+											for (PiecePosition position : piece.getPossibleMoves())
+												if ((!ignorePositions.containsKey(piece) || !ignorePositions.get(piece).contains(position))) {
+													lastTriedPiece = piece;
+													lastTriedPosition = position;
+													movePieceTo(piece.getPosition(), position, false);
+													if (!pieceColdBeCaptured(piece)) {
+														cloneBoard(recBoard, this);
+														cpuSelectedPositionToMove = new PiecePosition(position);
+														selectedPiece = piece;
+														return;
+													}
+													cloneBoard(recBoard, this);
+												}
+										}
+							}
+					}
+				}
+	
+			// Tenta capturar uma pedra adversária COM UM PEAO, mesmo que essa pedra possa ser capturada logo em seguida
+			for (Piece piece : getPieceList(getCurrentColorTurn()))
+				if (piece.getType() == PieceType.PAWN)
+					for (Piece opponentPiece : getPieceList(opponentColor()))
+						if ((!ignorePositions.containsKey(piece) || !ignorePositions.get(piece).contains(opponentPiece.getPosition())) &&
+								piece.getPossibleMoves().contains(opponentPiece.getPosition())) {
+									lastTriedPiece = piece;
+									lastTriedPosition = opponentPiece.getPosition();
+									movePieceTo(piece.getPosition(), opponentPiece.getPosition(), false);
+									cloneBoard(recBoard, this);
+									cpuSelectedPositionToMove = new PiecePosition(opponentPiece.getPosition());
+									selectedPiece = piece;
+									return;
+						}
+	
+			// Tenta mover um peão 2 casas para frente (se for a primeira movimentacao do peao) sem que ele possa ser capturado logo em seguida
+			for (Piece piece : getPieceList(getCurrentColorTurn()))
+				if (piece.getType() == PieceType.PAWN) {
+					for (PiecePosition position : piece.getPossibleMoves())
+						if ((!ignorePositions.containsKey(piece) || !ignorePositions.get(piece).contains(position)) &&
+								Math.abs(piece.getRow() - position.getRow()) == 2) {
+									lastTriedPiece = piece;
+									lastTriedPosition = position;
+									movePieceTo(piece.getPosition(), position, true);
+									if (!pieceColdBeCaptured(piece)) {
+										cloneBoard(recBoard, this);
+										cpuSelectedPositionToMove = new PiecePosition(position);
+										selectedPiece = piece;
+										return;
+									}
+									cloneBoard(recBoard, this);
+						}
+					}
+	
+			// Tenta mover a pedra para um tile seguro no turno seguinte ao movimento
+			for (PieceType type : PieceType.getListOfAll())
+				for (Piece piece : getPieceList(getCurrentColorTurn()))
+					if (piece.getType() == type) {
+						for (PiecePosition position : piece.getPossibleMoves())
+							if ((!ignorePositions.containsKey(piece) || !ignorePositions.get(piece).contains(position))) {
+								lastTriedPiece = piece;
+								lastTriedPosition = position;
+								movePieceTo(piece.getPosition(), position, true);
+								if (!pieceColdBeCaptured(piece)) {
+									cloneBoard(recBoard, this);
+									cpuSelectedPositionToMove = new PiecePosition(position);
+									selectedPiece = piece;
+									return;
+								}
+								cloneBoard(recBoard, this);
+							}
+					}
+	
+			// Tenta capturar uma pedra adversária mesmo que essa pedra possa ser capturada logo em seguida
+			for (PieceType type : PieceType.getListOfAll())
+				for (Piece piece : getPieceList(getCurrentColorTurn()))
+					if (piece.getType() == type)
+						for (Piece opponentPiece : getPieceList(opponentColor()))
+							if ((!ignorePositions.containsKey(piece) || !ignorePositions.get(piece).contains(opponentPiece.getPosition())) &&
+									piece.getPossibleMoves().contains(opponentPiece.getPosition())) {
+										lastTriedPiece = piece;
+										lastTriedPosition = opponentPiece.getPosition();
+										movePieceTo(piece.getPosition(), opponentPiece.getPosition(), false);
+										cloneBoard(recBoard, this);
+										cpuSelectedPositionToMove = new PiecePosition(opponentPiece.getPosition());
+										selectedPiece = piece;
+										return;
+							}
+			}
+			catch (Exception e) {
+				cloneBoard(recBoard, this);
+				if (!ignorePositions.containsKey(lastTriedPiece))
+					ignorePositions.put(lastTriedPiece, new ArrayList<>());
+				ignorePositions.get(lastTriedPiece).add(lastTriedPosition);
+			}
+	}
+	
+	public void doCpuMoveSelectedPiece() {
+		if (playMode == ChessPlayMode.PLAYER_VS_PLAYER)
+			throw new GameException("Unable to use while in a PLAYER VS PLAYER mode.");
+		if (!isCpuTurn())
+			throw new GameException("It's not the CPU turn.");
+		if (selectedPiece == null)
+			throw new GameException("CPU not selected a piece. Call \".doCpuSelectAPiece()\" first.");
+		movePieceTo(selectedPiece.getPosition(), cpuSelectedPositionToMove, false);
+	}
+	
+	public Boolean cpuSelectedAPiece() {
+		if (playMode == ChessPlayMode.PLAYER_VS_PLAYER)
+			throw new GameException("Unable to use while in a PLAYER VS PLAYER mode.");
+		return isCpuTurn() && selectedPiece != null;
+	}
+	
+	public PiecePosition getCpuSelectedPositionToMove() {
+		if (playMode == ChessPlayMode.PLAYER_VS_PLAYER)
+			throw new GameException("Unable to use while in a PLAYER VS PLAYER mode.");
+		if (!isCpuTurn())
+			throw new GameException("It's not the CPU turn.");
+		if (selectedPiece == null)
+			throw new GameException("CPU not selected a piece. Call \".doCpuSelectAPiece()\" first.");
+		return cpuSelectedPositionToMove;
+	}
 
 	private void changeTurn() {
 		turns++;
@@ -574,9 +754,6 @@ public class Board {
 		currentColorTurn = opponentColor();
 	}
 
-	public Piece movePieceTo(PiecePosition targetPos) throws BoardException 
-		{ return movePieceTo(getSelectedPiece().getPosition(), targetPos, false); }
-	
 	public Boolean pieceColdBeCaptured(Piece piece) {
 		checkIfBoardWasValidated();
 		validateNullVar(piece, "piece");
