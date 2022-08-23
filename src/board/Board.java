@@ -607,7 +607,7 @@ public class Board {
 		Map<Piece, List<PiecePosition>> ignorePositions = new HashMap<>();
 		List<Piece> ignoredPieces = new ArrayList<>();
 		int triedVal = -1;
-		Boolean debug = true;
+		Boolean debug = false;
 		cpuSelectedPositionToMove = null;
 
 		while (true)
