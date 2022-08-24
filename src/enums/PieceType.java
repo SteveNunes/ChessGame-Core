@@ -4,28 +4,31 @@ import java.util.ArrayList;
 import java.util.List;
 
 public enum PieceType {
-	KING(1),
-	KNIGHT(3),
-	ROOK(4),
-	BISHOP(5),
-	QUEEN(6),
-	PAWN(2);
+	PAWN(1),
+	KNIGHT(2),
+	ROOK(3.1f),
+	BISHOP(3.2f),
+	QUEEN(4),
+	KING(5);
 	
-	private final int value;
+	private final float value;
 
-	PieceType(int value)
+	PieceType(float value)
 		{ this.value = value; }
 	
-	public int getValue()
+	public float getValue()
 		{ return value; }
 	
+	public int getIntValue()
+		{ return (int)value; }
+
 	public static List<PieceType> getListOfAll() {
 		List<PieceType> list = new ArrayList<>();
 		list.add(PAWN);
-		list.add(QUEEN);
+		list.add(KNIGHT);
 		list.add(BISHOP);
 		list.add(ROOK);
-		list.add(KNIGHT);
+		list.add(QUEEN);
 		list.add(KING);
 		return list;
 	}

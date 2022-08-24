@@ -32,7 +32,7 @@ public class Board {
 
 	private static List<Board> undoBoards = new ArrayList<>();
 	private static int undoIndex = -1;
-	
+
 	private ChessPlayMode playMode;
 	private Map<Piece, Integer> movedTurns;
 	private Boolean lastMoveWasEnPassant;
@@ -44,9 +44,9 @@ public class Board {
 	private Piece enPassantPiece;
 	private Piece lastCapturedPiece;
 	private Piece promotedPiece;
-	private PiecePosition cpuSelectedPositionToMove;
 	private PieceColor currentColorTurn;
 	private Boolean boardWasValidated;
+	private ChessAI chessAI;
 	
 	public Board() {
 		board = new Piece[8][8];
@@ -61,12 +61,11 @@ public class Board {
 		currentColorTurn = startTurn;		
 	}
 	
-	private static void cloneBoard(Board sourceBoard, Board targetBoard) {
+	protected static void cloneBoard(Board sourceBoard, Board targetBoard) {
 		for (int y = 0; y < sourceBoard.board.length; y++)
 			for (int x = 0; x < sourceBoard.board[y].length; x++)
 				if ((targetBoard.board[y][x] = sourceBoard.board[y][x]) != null)
 					targetBoard.board[y][x].setPosition(y, x);
-		targetBoard.cpuSelectedPositionToMove = sourceBoard.cpuSelectedPositionToMove;
 		targetBoard.promotedPiece = sourceBoard.promotedPiece;
 		targetBoard.boardWasValidated = sourceBoard.boardWasValidated;
 		targetBoard.lastCapturedPiece = sourceBoard.lastCapturedPiece;
@@ -84,11 +83,14 @@ public class Board {
 		}
 	}
 
-	private Board newClonedBoard() {
+	protected Board newClonedBoard() {
 		Board board = new Board();
 		cloneBoard(this, board);
 		return board;
 	}
+	
+	public ChessAI getChessAI()
+		{ return chessAI; }
 	
 	public Boolean pieceWasCaptured()
 		{ return lastCapturedPiece != null; }
@@ -115,6 +117,9 @@ public class Board {
 	}
 
 	public void undoMoves(int totalUndoMoves) {
+		checkIfBoardWasValidated();
+		if (isGameOver())
+			throw new GameException("The current game was ended");
 		if (totalUndoMoves < 1)
 			throw new GameException("totalUndoMoves must be higher than 0");
 		if (undoIndex == 0)
@@ -129,6 +134,9 @@ public class Board {
 		{ undoMoves(1); }
 	
 	public void redoMoves(int totalRedoMoves) {
+		checkIfBoardWasValidated();
+		if (isGameOver())
+			throw new GameException("The current game was ended");
 		if (totalRedoMoves < 1)
 			throw new GameException("totalRedoMoves must be higher than 0");
 		if (undoIndex + 1 == undoBoards.size())
@@ -142,13 +150,12 @@ public class Board {
 	public void redoMove()
 		{ redoMoves(1); }
 
-	public void reset() throws BoardException {
+	public void reset() {
 		turns = 0;
 		boardWasValidated = false;
 		lastMoveWasEnPassant = false;
 		lastMoveWasCastling = false;
 		lastCapturedPiece = null;
-		cpuSelectedPositionToMove = null;
 		selectedPiece = null;
 		enPassantPiece = null;
 		promotedPiece = null;
@@ -158,6 +165,9 @@ public class Board {
 		resetBoard(board);
 	}
 	
+	public ChessPlayMode getPlayMode()
+		{ return playMode; }
+
 	public void setPlayMode(ChessPlayMode mode) {
 		if (boardWasValidated)
 			throw new BoardException("You can't do it after validated the board. Call this metod before validating the board.");
@@ -181,7 +191,9 @@ public class Board {
 	private Boolean checkPieceCount(Predicate<Long> predicate)
 		{ return checkPieceCount(null, null, predicate); }
 
-	public void validateBoard() throws BoardException {
+	public void validateBoard() {
+		if (chessAI == null)
+			chessAI = new ChessAI(this);
 		if (checkPieceCount(PieceType.KING, e -> e < 2))
 			throw new BoardException("You must add one King of each color on the board");
 		if (checkPieceCount(PieceColor.WHITE, e -> e < 2) || checkPieceCount(PieceColor.BLACK, e -> e < 2))
@@ -197,13 +209,20 @@ public class Board {
 			boardWasValidated = false;
 			throw new BoardException("This piece formation are unplayable because all BLACK pieces are stucked");
 		}
+		Boolean[] stucked = {false, false};
+		for (int n = 0; n < 2; n++)
+			for (Piece piece : getPieceList(n == 0 ? PieceColor.WHITE : PieceColor.BLACK))
+				if (!piece.isStucked())
+					stucked[n] = true;
+		if (!stucked[0] || !stucked[0])
+			throw new BoardException((!stucked[0] ? PieceColor.WHITE : PieceColor.BLACK).name() + " pieces are all stucked at the starting");
 		boardWasValidated = true;
 		undoBoards.clear();
 		undoIndex = -1;
 		saveBoardForUndo();
 	}
 	
-	private void checkIfBoardWasValidated() throws BoardException {
+	private void checkIfBoardWasValidated() {
 		if (!boardWasValidated)
 			throw new BoardException("You must call the \".validateBoard()\" method before start playing");
 	}
@@ -215,13 +234,13 @@ public class Board {
 		return true;
 	}
 
-	private void validatePosition(PiecePosition position, String varName) throws NullPointerException,InvalidPositionException {
+	private void validatePosition(PiecePosition position, String varName) {
 		validateNullVar(position, varName);
 		if (!isValidBoardPosition(position))
 			throw new InvalidPositionException(varName + " " + position + " - Invalid board position");
 	}
 	
-	private <T> void validateNullVar(T var, String varName) throws NullPointerException {
+	private <T> void validateNullVar(T var, String varName) {
 		if (var == null)
 			throw new NullPointerException("\"" + varName + "\" is null");
 	}
@@ -268,13 +287,13 @@ public class Board {
 		return getPromotedPiece() != null;
 	}
 	
-	public void promotePieceTo(PieceType newType) throws PromotionException,NullPointerException {
+	public void promotePieceTo(PieceType newType) {
 		checkIfBoardWasValidated();
 		if (!pieceWasPromoted())
 			throw new PromotionException("There is no promoted piece");
 		validateNullVar(newType, "newType");
 		if (newType == PieceType.PAWN || newType == PieceType.KING)
-			throw new PromotionException("You can't promote a Pawn to a " + newType.getValue());
+			throw new PromotionException("You can't promote a PAWN to a " + newType.name());
 		PiecePosition pos = new PiecePosition(getPromotedPiece().getPosition());
 		PieceColor color = getPromotedPiece().getColor();
 		removePiece(getPromotedPiece().getPosition());
@@ -416,9 +435,14 @@ public class Board {
 		return getSelectedPiece() != null;
 	}
 
-	public Piece selectPiece(PiecePosition position) throws BoardException,InvalidPositionException,PieceSelectionException {
+	protected void cpuSelectedPiece(Piece piece)
+		{ selectedPiece = piece; }
+
+	public Piece selectPiece(PiecePosition position) {
 		checkIfBoardWasValidated();
 		validatePosition(position, "position");
+		if (isGameOver())
+			throw new GameException("The current game was ended");
 		if (isCpuTurn())
 			throw new PieceSelectionException("It's CPU turn! Wait...");
 		if (checkMate())
@@ -455,9 +479,11 @@ public class Board {
 
 	public List<Piece> getCapturedPieces(PieceColor color) {
 		checkIfBoardWasValidated();
-		return capturedPieces.stream()
+		List<Piece> pieces = capturedPieces.stream()
 			.filter(c -> color == null || c.getColor() == color)
 			.collect(Collectors.toList());
+		pieces.sort((p1, p2) -> p1.getType().getValue() > p2.getType().getValue() ? 1 : -1);
+		return pieces;
 	}
 
 	public List<Piece> getCapturedPieces()
@@ -480,6 +506,9 @@ public class Board {
 			throw new InvalidPositionException("There's no piece at this slot position");
 		board[position.getRow()][position.getColumn()] = null;
 	}
+	
+	protected void removePiece(Piece piece)
+		{ removePiece(piece.getPosition()); }
 
 	public void cancelSelection() {
 		checkIfBoardWasValidated();
@@ -488,7 +517,7 @@ public class Board {
 		selectedPiece = null;
 	}
 	
-	private Piece movePieceTo(PiecePosition sourcePos, PiecePosition targetPos, Boolean justTesting) throws InvalidMoveException {
+	protected Piece movePieceTo(PiecePosition sourcePos, PiecePosition targetPos, Boolean justTesting) {
 		if (!justTesting) {
 			checkIfBoardWasValidated();
 			validatePosition(sourcePos, "sourcePos");
@@ -497,7 +526,7 @@ public class Board {
 		
 		sourcePos = new PiecePosition(sourcePos);
 		targetPos = new PiecePosition(targetPos);
-
+		
 		if (pieceWasPromoted()) {
 			if (justTesting)
 				return null;
@@ -505,7 +534,7 @@ public class Board {
 		}
 
 		if (selectedPiece != null && targetPos.equals(selectedPiece.getPosition())) {
-			//Se o slot de destino for o mesmo da pedra selecionada, desseleciona ela
+			//Se o slot de destino for o mesmo da peça selecionada, desseleciona ela
 			selectedPiece = null;
 			return null;
 		}
@@ -517,7 +546,7 @@ public class Board {
 		lastCapturedPiece = null;
 		
 		if (selectedPiece != null && targetPiece != null && !isOpponentPieces(selectedPiece, targetPiece)) {
-			//Se já houver uma pedra selecionada, e clicar em cima de outra pedra da mesma cor, cancela a seleção atual e seleciona a nova pedra
+			//Se já houver uma peça selecionada, e clicar em cima de outra peça da mesma cor, cancela a seleção atual e seleciona a nova peça
 			selectedPiece = targetPiece;
 			return null;
 		}
@@ -587,231 +616,40 @@ public class Board {
 		return targetPiece;
 	}
 	
-	public Piece movePieceTo(PiecePosition targetPos) throws BoardException {
+	public Piece movePieceTo(PiecePosition targetPos) {
+		checkIfBoardWasValidated();
+		if (isGameOver())
+			throw new GameException("The current game was ended");
 		if (!pieceIsSelected())
 			throw new PieceSelectionException("There's no selected piece to move!");
 		return movePieceTo(getSelectedPiece().getPosition(), targetPos, false);
 	}
 	
-	public void doCpuSelectAPiece() throws GameException {
-		if (playMode == ChessPlayMode.PLAYER_VS_PLAYER)
-			throw new GameException("Unable to use while in a PLAYER VS PLAYER mode.");
-		if (!isCpuTurn())
-			throw new GameException("It's not the CPU turn.");
-		if (selectedPiece != null)
-			throw new GameException("CPU already selected a piece. Call \".doCpuMoveSelectedPiece()\" for finish the CPU move.");
-		
-		Board recBoard = newClonedBoard();
-		Piece lastTriedPiece = null;
-		PiecePosition lastTriedPosition = null;
-		Map<Piece, List<PiecePosition>> ignorePositions = new HashMap<>();
-		List<Piece> ignoredPieces = new ArrayList<>();
-		int triedVal = -1;
-		Boolean debug = false;
-		cpuSelectedPositionToMove = null;
-
-		while (true)
-			try {
-				// Tenta capturar uma pedra adversária sem que a posição onde a pedra vá parar, permita que ela possa ser capturada logo em seguida
-				triedVal = 1;
-				for (PieceType type : PieceType.getListOfAll())
-					for (Piece piece : getPieceList(getCurrentColorTurn())) {
-						if (piece.getType() == type && !ignoredPieces.contains(piece)) {
-							ignoredPieces.add(piece);
-							for (Piece opponentPiece : getPieceList(opponentColor()))
-								if ((!ignorePositions.containsKey(piece) ||
-										!ignorePositions.get(piece).contains(opponentPiece.getPosition())) &&
-										piece.getPossibleMoves().contains(opponentPiece.getPosition())) {
-											lastTriedPiece = piece;
-											lastTriedPosition = opponentPiece.getPosition();
-											movePieceTo(piece.getPosition(), opponentPiece.getPosition(), true);
-											if (!pieceColdBeCaptured(piece)) {
-												triedVal = 2;
-												cloneBoard(recBoard, this);
-												cpuSelectedPositionToMove = new PiecePosition(opponentPiece.getPosition());
-												selectedPiece = piece;
-												return;
-											}
-											cloneBoard(recBoard, this);
-								}
-						}
-					}
-	
-				triedVal = 5;
-				// Tenta capturar uma pedra adversária com qualquer pedra se o ALVO for uma pedra que não seja um peão, mesmo que essa pedra possa ser capturada logo em seguida
-				for (Piece piece : getPieceList(getCurrentColorTurn()))
-					for (Piece opponentPiece : getPieceList(opponentColor()))
-						if (opponentPiece.getType() != PieceType.PAWN &&
-								piece.getPossibleMoves().contains(opponentPiece.getPosition()) &&
-								(!ignorePositions.containsKey(piece) ||
-								 !ignorePositions.get(piece).contains(opponentPiece.getPosition()))) {
-									triedVal = 6;
-									lastTriedPiece = piece;
-									lastTriedPosition = opponentPiece.getPosition();
-									cpuSelectedPositionToMove = new PiecePosition(opponentPiece.getPosition());
-									selectedPiece = piece;
-									return;
-						}
-	
-				triedVal = 7;
-				// Tenta capturar uma pedra adversária COM UM PEAO, mesmo que essa pedra possa ser capturada logo em seguida
-				for (Piece piece : getPieceList(getCurrentColorTurn()))
-					if (piece.getType() == PieceType.PAWN)
-						for (Piece opponentPiece : getPieceList(opponentColor()))
-							if ((!ignorePositions.containsKey(piece) ||
-									!ignorePositions.get(piece).contains(opponentPiece.getPosition())) &&
-									piece.getPossibleMoves().contains(opponentPiece.getPosition())) {
-										triedVal = 8;
-										lastTriedPiece = piece;
-										lastTriedPosition = opponentPiece.getPosition();
-										cpuSelectedPositionToMove = new PiecePosition(opponentPiece.getPosition());
-										selectedPiece = piece;
-										return;
-							}
-		
-				triedVal = 9;
-				// Tenta mover um peão 2 casas para frente, nas colunas do meio, se for seguro fazer isso
-				for (Piece piece : getPieceList(getCurrentColorTurn()))
-					if (piece.getType() == PieceType.PAWN && !piece.wasMoved() &&
-							(piece.getColumn() == 3 || piece.getColumn() == 4)) {
-								PiecePosition position = new PiecePosition(piece.getPosition());
-								position.incRow(piece.getColor() == PieceColor.BLACK ? -2 : 2);
-								if ((!ignorePositions.containsKey(piece) ||
-										!ignorePositions.get(piece).contains(position)) &&
-										piece.canMoveToPosition(position)) {
-											movePieceTo(piece.getPosition(), position, true);
-											if (!pieceColdBeCaptured(position)) {
-												triedVal = 10;
-												cloneBoard(recBoard, this);
-												cpuSelectedPositionToMove = position;
-												selectedPiece = piece;
-												return;
-											}
-											cloneBoard(recBoard, this);
-								}
-							}
-	
-				triedVal = 11;
-				// Tenta mover um peão 2 casas para frente, (se for a primeira movimentacao do peao) sem que ele possa ser capturado logo em seguida
-				for (Piece piece : getPieceList(getCurrentColorTurn()))
-					if (piece.getType() == PieceType.PAWN) {
-						for (PiecePosition position : piece.getPossibleMoves())
-							if ((!ignorePositions.containsKey(piece) || !ignorePositions.get(piece).contains(position)) &&
-									Math.abs(piece.getRow() - position.getRow()) == 2) {
-										movePieceTo(piece.getPosition(), position, true);
-										if (!pieceColdBeCaptured(position)) { 
-											triedVal = 12;
-											lastTriedPiece = piece;
-											lastTriedPosition = position;
-											cloneBoard(recBoard, this);
-											cpuSelectedPositionToMove = position;
-											selectedPiece = piece;
-											return;
-										}
-										cloneBoard(recBoard, this);
-							}
-						}
-	
-				triedVal = 13;
-				// Tenta mover a pedra para um tile seguro no turno seguinte ao movimento
-				for (PieceType type : PieceType.getListOfAll())
-					for (Piece piece : getPieceList(getCurrentColorTurn()))
-						if (piece.getType() == type) {
-							for (PiecePosition position : piece.getPossibleMoves())
-								if ((!ignorePositions.containsKey(piece) || !ignorePositions.get(piece).contains(position))) {
-									lastTriedPiece = piece;
-									lastTriedPosition = position;
-									movePieceTo(piece.getPosition(), position, true);
-									if (!pieceColdBeCaptured(piece)) {
-										triedVal = 14;
-										cloneBoard(recBoard, this);
-										cpuSelectedPositionToMove = position;
-										selectedPiece = piece;
-										return;
-									}
-									cloneBoard(recBoard, this);
-								}
-						}
-		
-				triedVal = 15;
-				// Tenta capturar uma pedra adversária mesmo que essa pedra possa ser capturada logo em seguida
-				for (PieceType type : PieceType.getListOfAll())
-					for (Piece piece : getPieceList(getCurrentColorTurn()))
-						if (piece.getType() == type)
-							for (Piece opponentPiece : getPieceList(opponentColor()))
-								if ((!ignorePositions.containsKey(piece) || !ignorePositions.get(piece).contains(opponentPiece.getPosition())) &&
-										piece.getPossibleMoves().contains(opponentPiece.getPosition())) {
-											triedVal = 16;
-											lastTriedPiece = piece;
-											lastTriedPosition = opponentPiece.getPosition();
-											cpuSelectedPositionToMove = new PiecePosition(opponentPiece.getPosition());
-											selectedPiece = piece;
-											return;
-								}
-			}
-			catch (Exception e) {
-				if (debug) {
-					System.out.println("\nAI DEBUG:\ntriedVal: " + triedVal);
-					System.out.println("lastTriedPiece at: " + (lastTriedPiece == null ? null : lastTriedPiece.getPosition()));
-					System.out.println("lastTriedPosition: " + (lastTriedPosition == null ? null : lastTriedPosition));
-					System.out.println("selectedPiece at: " + (selectedPiece == null ? null : selectedPiece.getPosition()));
-					System.out.println("cpuSelectedPositionToMove: " + (cpuSelectedPositionToMove == null ? null : cpuSelectedPositionToMove));
-					System.out.println(e.getMessage());
-				}
-				cloneBoard(recBoard, this);
-				if (!ignorePositions.containsKey(lastTriedPiece))
-					ignorePositions.put(lastTriedPiece, new ArrayList<>());
-				ignorePositions.get(lastTriedPiece).add(lastTriedPosition);
-			}
-	}
-	
-	public void doCpuMoveSelectedPiece() {
-		if (playMode == ChessPlayMode.PLAYER_VS_PLAYER)
-			throw new GameException("Unable to use while in a PLAYER VS PLAYER mode.");
-		if (!isCpuTurn())
-			throw new GameException("It's not the CPU turn.");
-		if (selectedPiece == null)
-			throw new GameException("CPU not selected a piece. Call \".doCpuSelectAPiece()\" first.");
-		movePieceTo(selectedPiece.getPosition(), cpuSelectedPositionToMove, false);
-	}
-	
-	public Boolean cpuSelectedAPiece() {
-		if (playMode == ChessPlayMode.PLAYER_VS_PLAYER)
-			throw new GameException("Unable to use while in a PLAYER VS PLAYER mode.");
-		return isCpuTurn() && selectedPiece != null;
-	}
-	
-	public PiecePosition getCpuSelectedPositionToMove() {
-		if (playMode == ChessPlayMode.PLAYER_VS_PLAYER)
-			throw new GameException("Unable to use while in a PLAYER VS PLAYER mode.");
-		if (!isCpuTurn())
-			throw new GameException("It's not the CPU turn.");
-		if (selectedPiece == null)
-			throw new GameException("CPU not selected a piece. Call \".doCpuSelectAPiece()\" first.");
-		return cpuSelectedPositionToMove;
-	}
-
 	private void changeTurn() {
 		turns++;
 		selectedPiece = null;
 		currentColorTurn = opponentColor();
 	}
-
-	public Boolean pieceColdBeCaptured(Piece piece) {
+	
+	protected List<Piece> getPiecesWhichCanCapture(Piece piece) {
+		List<Piece> pieces = new ArrayList<>();
 		checkIfBoardWasValidated();
 		validateNullVar(piece, "piece");
 		for (Piece opponentPiece : getPieceList(opponentColor(piece.getColor())))
 			if (opponentPiece.getPossibleMoves().contains(piece.getPosition()))
-				return true;
-		return false;
+				pieces.add(opponentPiece);
+		return pieces.isEmpty() ? null : pieces;
 	}
+
+	public Boolean pieceCouldBeCaptured(Piece piece)
+		{ return getPiecesWhichCanCapture(piece) != null; }
 	
-	public Boolean pieceColdBeCaptured(PiecePosition position) {
+	public Boolean pieceCouldBeCaptured(PiecePosition position) {
 		checkIfBoardWasValidated();
 		validatePosition(position, "position");
 		if (getPieceAt(position) == null)
 			throw new InvalidPositionException(position + " - There is no piece");
-		return pieceColdBeCaptured(getPieceAt(position));
+		return pieceCouldBeCaptured(getPieceAt(position));
 	}
 	
 	public Boolean pieceCanDoSafeMove(Piece piece) {
@@ -822,7 +660,7 @@ public class Board {
 		List<PiecePosition> possibleMoves = new ArrayList<>(piece.getPossibleMoves());
 		for (PiecePosition myPos : possibleMoves) {
 			movePieceTo(fromPos, myPos, true);
-			if (!pieceColdBeCaptured(piece) && !isChecked(piece.getColor())) {
+			if (!pieceCouldBeCaptured(piece) && !isChecked(piece.getColor())) {
 				cloneBoard(backupBoard, this);
 				return true;
 			}
@@ -846,7 +684,7 @@ public class Board {
 		checkIfBoardWasValidated();
 		validateNullVar(color, "color");
 		for (Piece piece : getPieceList(color))
-			if (piece.getType() == PieceType.KING && pieceColdBeCaptured(piece))
+			if (piece.getType() == PieceType.KING && pieceCouldBeCaptured(piece))
 				return true;
 		return false;
 	}
@@ -898,7 +736,7 @@ public class Board {
 	private Piece getNewPieceInstance(PiecePosition position, PieceType type, PieceColor color)
 		{ return getNewPieceInstance(this, position, type, color); }
 	
-	private void addNewPiece(PiecePosition position, PieceType type, PieceColor color) throws NullPointerException,InvalidPositionException,BoardException {
+	private void addNewPiece(PiecePosition position, PieceType type, PieceColor color) {
 		validateNullVar(position, "position");
 		if (!isValidBoardPosition(position))
 			throw new InvalidPositionException("Invalid board position");
@@ -916,10 +754,10 @@ public class Board {
 		movedTurns.put(piece, 0);
 	}
 
-	public void addNewPiece(int row, int column, PieceType type, PieceColor color) throws GameException,BoardException
+	public void addNewPiece(int row, int column, PieceType type, PieceColor color)
 		{ addNewPiece(new PiecePosition(row, column), type, color); }
 
-	public void addNewPiece(String position, PieceType type, PieceColor color) throws GameException,BoardException
+	public void addNewPiece(String position, PieceType type, PieceColor color)
 		{ addNewPiece(PiecePosition.stringToPosition(position), type, color); }
 	
 	public void addNewPiece(PiecePosition position, Piece piece)
