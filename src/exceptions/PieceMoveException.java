@@ -1,10 +1,10 @@
 package exceptions;
 
-public class PromotionException extends Exception {
+public class PieceMoveException extends Exception {
 
 	private static final long serialVersionUID = 1L;
 
-	public PromotionException(String msg)
+	public PieceMoveException(String msg)
 		{	super(msg); }
 	
 }

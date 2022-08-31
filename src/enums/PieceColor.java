@@ -12,6 +12,12 @@ public enum PieceColor {
 	PieceColor(int value)
 		{ this.value = value; }
 	
+	public static PieceColor getOppositeColor(PieceColor color)
+		{ return color == BLACK ? WHITE : BLACK; }
+	
+	public PieceColor getOppositeColor()
+		{ return getOppositeColor(this); }
+	
 	public int getValue()
 		{ return value; }
 	

@@ -5,9 +5,9 @@ import java.util.List;
 
 public enum PieceType {
 	PAWN(1),
-	KNIGHT(2),
-	ROOK(3.1f),
-	BISHOP(3.2f),
+	ROOK(2.1f),
+	BISHOP(2.2f),
+	KNIGHT(3),
 	QUEEN(4),
 	KING(5);
 	
@@ -32,22 +32,39 @@ public enum PieceType {
 		list.add(KING);
 		return list;
 	}
-	
-	public static char getLet(PieceType type) {
-		if (type == QUEEN)
-			return 'Q';
-		if (type == KING)
-			return 'K';
-		if (type == BISHOP)
-			return 'B';
-		if (type == KNIGHT)
-			return 'N';
-		if (type == ROOK)
-			return 'R';
-		return 'P';
+
+	public static List<PieceType> getListOfAllSortedByRank(Boolean reversed) {
+		List<PieceType> list = getListOfAll();
+		list.sort((t1, t2) -> t1.getValue() > t2.getValue() ? (!reversed ? -1 : 1) : (!reversed ? 1 : -1));
+		return list;
 	}
 	
+	public static List<PieceType> getListOfAllSortedByRank()
+		{ return getListOfAllSortedByRank(false);	}
+	
+	public static char getLet(PieceType type, PieceColor color) {
+		final Character let;
+		if (type == QUEEN)
+			let = 'Q';
+		else if (type == KING)
+			let = 'K';
+		else if (type == BISHOP)
+			let = 'B';
+		else if (type == KNIGHT)
+			let = 'N';
+		else if (type == ROOK)
+			let = 'R';
+		else
+			let = 'P';
+		return color == PieceColor.BLACK ? Character.toLowerCase(let) : let;
+	}
+	
+	public static char getLet(PieceType type)
+		{ return getLet(type, PieceColor.WHITE); }
+	
+	public char getLet(PieceColor color)
+		{ return getLet(this, color); }
+
 	public char getLet()
 		{ return getLet(this); }
-
 }
