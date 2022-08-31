@@ -251,5 +251,4 @@ public abstract class Piece implements Comparable<Piece> {
 	public int compareTo(Piece p)
 		{ return getTypeValue() > p.getTypeValue() ? 1 : getTypeValue() < p.getTypeValue() ? -1 : 0; }
 
-
 }

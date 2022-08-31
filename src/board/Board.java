@@ -922,32 +922,30 @@ public class Board {
 		if (!justTesting && playMode == ChessPlayMode.PLAYER_VS_PLAYER)
 			saveBoardForUndo();
 		
-		if (!justTesting) {
-			StringBuilder sb = new StringBuilder();
-			for (Piece[] boardRow : board)
-				for (Piece piece : boardRow)
-					if (piece == null)
-						sb.append("[null]");
-					else {
-						sb.append("[");
-						sb.append(piece.getColor().name());
-						sb.append("_");
-						sb.append(piece.getType().name());
-						sb.append("]");
-					}
-			lastBoards.add(sb.toString());
-			int i = lastBoards.size() - 1;
-			if (lastBoards.size() > 4) {
-				if (!lastBoards.get(i).equals(lastBoards.get(i - 4))) {
-					lastBoards.clear();
-					repeats = 0;
+		StringBuilder sb = new StringBuilder();
+		for (Piece[] boardRow : board)
+			for (Piece piece : boardRow)
+				if (piece == null)
+					sb.append("[null]");
+				else {
+					sb.append("[");
+					sb.append(piece.getColor().name());
+					sb.append("_");
+					sb.append(piece.getType().name());
+					sb.append("]");
 				}
-				else
-					++repeats;
+		lastBoards.add(sb.toString());
+		int i = lastBoards.size() - 1;
+		if (lastBoards.size() > 4) {
+			if (!lastBoards.get(i).equals(lastBoards.get(i - 4))) {
+				lastBoards.clear();
+				repeats = 0;
 			}
-			drawGame = getPieceList().size() == 2 || repeats == 3 ||
-				!getFriendlyPieceList(p -> p.isSameTypeOf(PieceType.KING) && p.getPossibleMoves().isEmpty() && isSafeSpot(p)).isEmpty();
+			else
+				++repeats;
 		}
+		drawGame = getPieceList().size() == 2 || repeats == 3 ||
+				!getFriendlyPieceList(p -> p.isSameTypeOf(PieceType.KING) && ((King)p).isStaleMated()).isEmpty();
 		lastMovedPiece = sourcePiece;
 		return targetPiece;
 	}
@@ -1076,7 +1074,7 @@ public class Board {
 	 * Retorna {@code true} se o empate foi devido á afogamento (Rei sem possibilidade de movimento, mas não sob risco de captura) 
 	 */
 	public Boolean isDrawByStalemate()
-		{ return drawGame && !getFriendlyPieceList(p -> p.isSameTypeOf(PieceType.KING) && p.getPossibleMoves().isEmpty() && isSafeSpot(p)).isEmpty(); }
+		{ return drawGame && !getFriendlyPieceList(p -> p.isSameTypeOf(PieceType.KING) && ((King)p).isStaleMated()).isEmpty(); }
 
 	/**
 	 * Adiciona uma nova pedra no tabuleiro
