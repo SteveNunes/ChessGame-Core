@@ -464,7 +464,8 @@ public class Board {
 	public Boolean isSafeSpot(PiecePosition position, PieceColor opponentColor) {
 		validatePosition(position, "position");
 		validateNullVar(opponentColor, "opponentColor");
-		return getPieceList(opponentColor, p -> p.canMoveToPosition(position)).isEmpty();
+		return isFreeSlot(position) &&
+			getPieceList(opponentColor, p -> p.canMoveToPosition(position)).isEmpty();
 	}
 	
 	/**
