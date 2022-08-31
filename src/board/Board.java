@@ -1062,19 +1062,19 @@ public class Board {
 	/*
 	 * Retorna {@code true} se o empate foi devido á só ter sobrado os reis no tabuleiro 
 	 */
-	public Boolean isDrawByOnlyLeftBothKingsOnTheBoard()
+	public Boolean isDrawByBareKings()
 		{ return drawGame && getPieceList().size() == 2; }
 	
 	/*
 	 * Retorna {@code true} se o empate foi devido á repetições de movimento 
 	 */
-	public Boolean isDrawByMovementRepeating()
+	public Boolean isDrawByThreefoldRepetition()
 		{ return drawGame && repeats == 3; }
 
 	/*
 	 * Retorna {@code true} se o empate foi devido á afogamento (Rei sem possibilidade de movimento, mas não sob risco de captura) 
 	 */
-	public Boolean isDrawByKingWithNoAvailableMoves()
+	public Boolean isDrawByStalemate()
 		{ return drawGame && !getFriendlyPieceList(p -> p.isSameTypeOf(PieceType.KING) && p.getPossibleMoves().isEmpty() && isSafeSpot(p)).isEmpty(); }
 
 	/**

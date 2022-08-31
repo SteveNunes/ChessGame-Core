@@ -18,7 +18,7 @@ import piece.PiecePosition;
 
 public class ChessAI {
 
-	private Boolean debugging = true;
+	private Boolean debugging = false;
 	private Board board = null;
 	private int cpuLastChoice;
 	private Piece cpuSelectedPiece;
