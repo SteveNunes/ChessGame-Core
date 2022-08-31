@@ -936,17 +936,18 @@ public class Board {
 						sb.append("]");
 					}
 			lastBoards.add(sb.toString());
-			int p = lastBoards.size() - 1;
+			int i = lastBoards.size() - 1;
 			if (lastBoards.size() > 4) {
-				if (!lastBoards.get(p).equals(lastBoards.get(p - 4))) {
+				if (!lastBoards.get(i).equals(lastBoards.get(i - 4))) {
 					lastBoards.clear();
 					repeats = 0;
 				}
-				else if (++repeats == 3)
-					drawGame = true;
+				else
+					++repeats;
 			}
+			drawGame = getPieceList().size() == 2 || repeats == 3 ||
+				!getFriendlyPieceList(p -> p.isSameTypeOf(PieceType.KING) && p.getPossibleMoves().isEmpty() && isSafeSpot(p)).isEmpty();
 		}
-		
 		lastMovedPiece = sourcePiece;
 		return targetPiece;
 	}
