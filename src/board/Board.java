@@ -48,7 +48,10 @@ public class Board {
 	private Piece promotedPiece;
 	private PieceColor currentColorTurn;
 	private Boolean boardWasValidated;
+	private Boolean drawGame;
 	private ChessAI chessAI;
+	private List<String> lastBoards;
+	private int repeats;
 
 	/**
 	 * Construtor padrão 
@@ -80,9 +83,11 @@ public class Board {
 	 */
 	public void reset() {
 		turns = 0;
+		repeats = 0;
 		boardWasValidated = false;
 		lastMoveWasEnPassant = false;
 		lastMoveWasCastling = false;
+		drawGame = false;
 		lastCapturedPiece = null;
 		lastMovedPiece = null;
 		selectedPiece = null;
@@ -91,6 +96,7 @@ public class Board {
 		currentColorTurn = new SecureRandom().nextInt(2) == 0 ? PieceColor.BLACK : PieceColor.WHITE;
 		capturedPieces.clear();
 		movedTurns.clear();
+		lastBoards = new ArrayList<>();
 		resetBoard(board);
 	}
 	
@@ -116,6 +122,8 @@ public class Board {
 			for (int x = 0; x < sourceBoard.board[y].length; x++)
 				if ((targetBoard.board[y][x] = sourceBoard.board[y][x]) != null)
 					targetBoard.board[y][x].setPosition(y, x);
+		targetBoard.lastBoards = new ArrayList<>(sourceBoard.lastBoards);
+		targetBoard.drawGame = sourceBoard.drawGame;
 		targetBoard.lastMovedPiece = sourceBoard.lastMovedPiece;
 		targetBoard.promotedPiece = sourceBoard.promotedPiece;
 		targetBoard.boardWasValidated = sourceBoard.boardWasValidated;
@@ -127,6 +135,7 @@ public class Board {
 		targetBoard.currentColorTurn = sourceBoard.currentColorTurn;
 		targetBoard.capturedPieces = new ArrayList<>(sourceBoard.capturedPieces);
 		targetBoard.turns = sourceBoard.turns;
+		targetBoard.repeats = sourceBoard.repeats;
 		targetBoard.movedTurns.clear();
 		for (Piece piece : sourceBoard.movedTurns.keySet()) {
 			piece.setMovedTurns(sourceBoard.movedTurns.get(piece));
@@ -913,6 +922,31 @@ public class Board {
 		if (!justTesting && playMode == ChessPlayMode.PLAYER_VS_PLAYER)
 			saveBoardForUndo();
 		
+		if (!justTesting) {
+			StringBuilder sb = new StringBuilder();
+			for (Piece[] boardRow : board)
+				for (Piece piece : boardRow)
+					if (piece == null)
+						sb.append("[null]");
+					else {
+						sb.append("[");
+						sb.append(piece.getColor().name());
+						sb.append("_");
+						sb.append(piece.getType().name());
+						sb.append("]");
+					}
+			lastBoards.add(sb.toString());
+			int p = lastBoards.size() - 1;
+			if (lastBoards.size() > 4) {
+				if (!lastBoards.get(p).equals(lastBoards.get(p - 4))) {
+					lastBoards.clear();
+					repeats = 0;
+				}
+				else if (++repeats == 3)
+					drawGame = true;
+			}
+		}
+		
 		lastMovedPiece = sourcePiece;
 		return targetPiece;
 	}
@@ -1020,14 +1054,29 @@ public class Board {
 	}
 	
 	/**
-	 * Verifica se o jogo deu empate (Restou apenas 2 reis no tabuleiro) 
+	 * Verifica se o jogo deu empate 
 	 */
-	public Boolean drawGame() {
-		return getPieceList().size() == 2 &&
-			getPieceList().get(0).getType() == PieceType.KING &&
-			getPieceList().get(1).getType() == PieceType.KING;
-	}
+	public Boolean drawGame()
+		{ return drawGame; }
 	
+	/*
+	 * Retorna {@code true} se o empate foi devido á só ter sobrado os reis no tabuleiro 
+	 */
+	public Boolean isDrawByOnlyLeftBothKingsOnTheBoard()
+		{ return drawGame && getPieceList().size() == 2; }
+	
+	/*
+	 * Retorna {@code true} se o empate foi devido á repetições de movimento 
+	 */
+	public Boolean isDrawByMovementRepeating()
+		{ return drawGame && repeats == 3; }
+
+	/*
+	 * Retorna {@code true} se o empate foi devido á afogamento (Rei sem possibilidade de movimento, mas não sob risco de captura) 
+	 */
+	public Boolean isDrawByKingWithNoAvailableMoves()
+		{ return drawGame && !getFriendlyPieceList(p -> p.isSameTypeOf(PieceType.KING) && p.getPossibleMoves().isEmpty() && isSafeSpot(p)).isEmpty(); }
+
 	/**
 	 * Adiciona uma nova pedra no tabuleiro
 	 * @param position - Posição do tabuleiro onde a pedra será adicionada

@@ -18,7 +18,7 @@ import piece.PiecePosition;
 
 public class ChessAI {
 
-	private Boolean debugging = false;
+	private Boolean debugging = true;
 	private Board board = null;
 	private int cpuLastChoice;
 	private Piece cpuSelectedPiece;
@@ -124,8 +124,6 @@ public class ChessAI {
 						PossibleMove possibleMove = new PossibleMove(piece, positionBefore, position);
 						if (predicate.test(possibleMove)) {
 							Board b = board.newClonedBoard();
-							long friendlyInsightScore = 0;
-							int totalFriendlyInsights = 0;
 							long opponentInsightScore = 0;
 							int totalOpponentInsights = 0;
 							if (board.pieceWasCaptured() && board.getLastMovedPiece() == piece) { 
@@ -140,7 +138,7 @@ public class ChessAI {
 									 * não tanto como seria se a pedra capturante estivesse em segurança.
 									 */
 									possibleMove.incScore((long)(((piece.getTypeValue() - board.getLastCapturedPiece().getTypeValue()) + 0.1) * 10) * Integer.MAX_VALUE * 5);
-									possibleMove.incChoice(4);
+									possibleMove.incChoice(2);
 								}
 								else {
 									/* Se a pedra capturada era de menor valor que a pedra capturante,
@@ -148,14 +146,23 @@ public class ChessAI {
 									 * capturante e pedra capturada (Isso evita com que a CPU perca uma
 									 * pedra de maior valor, capturando uma de menor valor)
 									 */
-									possibleMove.decScore((long)(((board.getLastCapturedPiece().getTypeValue() - piece.getTypeValue())) * 10) * Integer.MAX_VALUE * 5);
+									possibleMove.decScore(Long.MAX_VALUE - ((long)(((board.getLastCapturedPiece().getTypeValue() - piece.getTypeValue())) * 10) * Integer.MAX_VALUE * 10));
 									possibleMove.incChoice(4);
 								}
 							}
-							for (Piece opponentPiece : board.getPieceListByColor(color.getOppositeColor()))
+							for (Piece opponentPiece : board.getPieceListByColor(color.getOppositeColor())) {
+								if (piece.couldCapture(opponentPiece)) {
+									opponentInsightScore += (long)(opponentPiece.getTypeValue() * 10);
+									totalOpponentInsights++;
+								}
+								for (Piece friendlyPiece : board.getPieceListByColor(color))
+									if (opponentPiece.couldCapture(friendlyPiece)) {
+										possibleMove.decScore((long)(friendlyPiece.getTypeValue() * 10) * Integer.MAX_VALUE);
+										possibleMove.incChoice(4096);
+									}
 								if (!board.isSafeSpot(opponentPiece) && safePiecesBefore.contains(opponentPiece)) {
 									// Se no turno testado alguma pedra adversária ficou sob ameaça de captura
-									if (piece.couldCapture(opponentPiece) && !opponentPiece.couldCapture(piece)) {
+									if (piece.couldCapture(opponentPiece) && !opponentPiece.couldCapture(piece) && board.isSafeSpot(piece)) {
 										// Se uma pedra atual pode capturar a pedra adversária em segurança...
 										try {
 											Piece lastCaptured = board.getLastCapturedPiece();
@@ -190,7 +197,8 @@ public class ChessAI {
 										catch (Exception e) {}
 										Board.cloneBoard(b, board);
 									}
-									else if (board.getLastMovedPiece() == piece && opponentPiece.couldCapture(piece)) { // Se a pedra ameaçada de captura puder capturar a pedra aliada movida, decrementa o score baseado no valor da pedra aliada
+									else if (board.getLastMovedPiece() == piece && opponentPiece.couldCapture(piece)) { 
+										// Se a pedra ameaçada de captura puder capturar a pedra aliada movida, decrementa o score baseado no valor da pedra aliada
 										possibleMove.decScore((long)((piece.getTypeValue()) * 10) * Integer.MAX_VALUE * 10);
 										possibleMove.incChoice(64);
 									}
@@ -218,40 +226,36 @@ public class ChessAI {
 										}
 									}
 								}
+							}
 							for (Piece piece2 : board.getPieceListByColor(color))
 								if (!board.isSafeSpot(piece2) && safePiecesBefore.contains(piece2)) {
 									/* Se pedra que estava segura anteriormente, estiver em perigo no turno atual,
 									 * decrementar o score 'pouco ou muito', dependendo se a pedra movida for de
 									 * valor menor que a pedra que ficou desprotegida
 									 */
-									if (piece2.strongerThan(piece)) {  
-										friendlyInsightScore += (long)(piece2.getTypeValue() * 10);
+									if (piece2.strongerThan(board.getLastMovedPiece())) {  
+										possibleMove.decScore((long)(piece2.getTypeValue() * 10));
 										possibleMove.incChoice(512);
 									}
 									else {
-										friendlyInsightScore += ((long)(((piece2.getTypeValue() - piece.getTypeValue()) + 0.1) * 10));
+										possibleMove.decScore(((long)(((piece2.getTypeValue() - board.getLastMovedPiece().getTypeValue()) + 0.1) * 10)));
 										possibleMove.incChoice(1024);
 									}
-									totalFriendlyInsights++;
 								}
 							if (totalOpponentInsights > 0) {
 								possibleMove.incScore((long)Math.pow(opponentInsightScore, totalOpponentInsights));
 								possibleMove.incChoice(2048);
-							}
-							if (totalFriendlyInsights > 0) {
-								possibleMove.decScore((long)Math.pow(friendlyInsightScore, totalFriendlyInsights));
-								possibleMove.incChoice(4096);
 							}
 							if (piece.isSameTypeOf(PieceType.PAWN) && board.isSafeSpot(position, color.getOppositeColor())) {
 								if (Math.abs(positionBefore.getRow() - position.getRow()) > 1) {
 									/* Se em alguma situacao só restar movimentos com peôes, prioriza
 									 * os que podem andar 2 tiles, de preferencia pelo meio
 									 */
-									possibleMove.setScore(Long.MAX_VALUE - (piece.getColumn() == 3 || piece.getColumn() == 4 ? 0 : 1));
+									possibleMove.setScore(Integer.MAX_VALUE - (piece.getColumn() == 3 || piece.getColumn() == 4 ? 0 : 1));
 									possibleMove.incChoice(piece.getColumn() == 3 || piece.getColumn() == 4 ? 16384 : 8192);
 								}
 								else {
-									possibleMove.incScore(Long.MAX_VALUE - 2);
+									possibleMove.incScore(Integer.MAX_VALUE - 2);
 									possibleMove.incChoice(32768);
 								}
 							}

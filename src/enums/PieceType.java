@@ -5,9 +5,9 @@ import java.util.List;
 
 public enum PieceType {
 	PAWN(1),
-	ROOK(2.1f),
-	BISHOP(2.2f),
-	KNIGHT(3),
+	BISHOP(2.1f),
+	KNIGHT(2.2f),
+	ROOK(3),
 	QUEEN(4),
 	KING(5);
 	
