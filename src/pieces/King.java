@@ -55,7 +55,7 @@ public class King extends Piece  {
 	
 	public Boolean isStaleMated() {
 		for (PiecePosition position : getPossibleMoves())
-			if (getBoard().isSafeSpot(position, getColor()))
+			if (getBoard().isSafeSpot(position, getOpponentColor()))
 				return false;
 		return !getPossibleMoves().isEmpty();
 	}
