@@ -23,5 +23,16 @@ public enum ChessPlayMode {
 		list.add(CPU_VS_CPU);
 		return list;
 	}
+	
+	public static String getName(ChessPlayMode mode) {
+		if (mode == PLAYER_VS_PLAYER)
+			return "Player vs Player";
+		if (mode == PLAYER_VS_CPU)
+			return "Player vs CPU";
+		return "CPU vs CPU";
+	}
+	
+	public String getName()
+		{ return getName(this); }
 
 }
