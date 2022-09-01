@@ -111,7 +111,7 @@ public class ChessAI {
 		List<Piece> pieces = new ArrayList<>(board.sortPieceListByPieceValue(board.getPieceListByColor(color, p -> !ignorePieces.contains(p))));
 		List<Piece> safePiecesBefore = new ArrayList<>();
 		for (Piece piece : board.getPieceList())
-			if (board.isSafeSpot(piece))
+			if (board.pieceIsAtSafePosition(piece))
 				safePiecesBefore.add(piece);
 		for (Piece piece : pieces) {
 			ignorePositions.clear();
@@ -136,14 +136,14 @@ public class ChessAI {
 										possibleMove.decScore((long)(friendlyPiece.getTypeValue() * 10) * Integer.MAX_VALUE);
 										possibleMove.incChoice(4096);
 									}
-								if (!board.isSafeSpot(opponentPiece) && safePiecesBefore.contains(opponentPiece)) {
+								if (!board.pieceIsAtSafePosition(opponentPiece) && safePiecesBefore.contains(opponentPiece)) {
 									// Se no turno testado alguma pedra adversária ficou sob ameaça de captura
-									if (piece.couldCapture(opponentPiece) && !opponentPiece.couldCapture(piece) && board.isSafeSpot(piece)) {
+									if (piece.couldCapture(opponentPiece) && !opponentPiece.couldCapture(piece) && board.pieceIsAtSafePosition(piece)) {
 										// Se uma pedra atual pode capturar a pedra adversária em segurança...
 										try {
 											Piece lastCaptured = board.getLastCapturedPiece();
 											tryToMoveTo(piece, opponentPiece.getPosition()); // Simula a captura para ver como vai ficar a situação da pedra capturante após a captura
-											if (board.isSafeSpot(piece)) { 
+											if (board.pieceIsAtSafePosition(piece)) { 
 												/* Se após a captura, a pedra capturante ficou segura, incrementa
 												 * o score no valor da pedra adversária que pode ser capturada
 												 */
@@ -179,7 +179,7 @@ public class ChessAI {
 										possibleMove.incChoice(64);
 									}
 									if (opponentPiece.isSameTypeOf(PieceType.KING)) {
-										if (!piece.isSameTypeOf(PieceType.PAWN) && board.isSafeSpot(piece)) {
+										if (!piece.isSameTypeOf(PieceType.PAWN) && board.pieceIsAtSafePosition(piece)) {
 											/* Incrementa o score baseado na distância da pedra atual para a pedra do rei,
 											 * desde que essa posição nao coloque a pedra em perigo (apenas não-peôes)
 											 */
@@ -204,7 +204,7 @@ public class ChessAI {
 								}
 							}
 							for (Piece piece2 : board.getPieceListByColor(color))
-								if (!board.isSafeSpot(piece2) && safePiecesBefore.contains(piece2)) {
+								if (!board.pieceIsAtSafePosition(piece2) && safePiecesBefore.contains(piece2)) {
 									/* Se pedra que estava segura anteriormente, estiver em perigo no turno atual,
 									 * decrementar o score 'pouco ou muito', dependendo se a pedra movida for de
 									 * valor menor que a pedra que ficou desprotegida
@@ -222,7 +222,7 @@ public class ChessAI {
 								possibleMove.incScore((long)Math.pow(opponentInsightScore, totalOpponentInsights));
 								possibleMove.incChoice(2048);
 							}
-							if (piece.isSameTypeOf(PieceType.PAWN) && board.isSafeSpot(position, color.getOppositeColor())) {
+							if (piece.isSameTypeOf(PieceType.PAWN) && board.pieceCanGoToASafePosition(piece, position)) {
 								if (Math.abs(positionBefore.getRow() - position.getRow()) > 1) {
 									/* Se em alguma situacao só restar movimentos com peôes, prioriza
 									 * os que podem andar 2 tiles, de preferencia pelo meio
@@ -244,12 +244,12 @@ public class ChessAI {
 								possibleMove.incChoice(131072);
 							}
 							else if (board.isChecked()) { // Decrementa o score se a última jogada testada resultou num check seguro
-								possibleMove.incScore(board.isSafeSpot(piece) ? Long.MAX_VALUE / 3 : -(Long.MAX_VALUE / 3));
-								possibleMove.incChoice(board.isSafeSpot(piece) ? 262144 : 524288);
+								possibleMove.incScore(board.pieceIsAtSafePosition(piece) ? Long.MAX_VALUE / 3 : -(Long.MAX_VALUE / 3));
+								possibleMove.incChoice(board.pieceIsAtSafePosition(piece) ? 262144 : 524288);
 							}
 							if (board.pieceWasCaptured() && board.getLastMovedPiece() == piece) { 
 								// Se houve captura e a pedra capturante for a pedra atual
-								if (board.isSafeSpot(piece)) { 
+								if (board.pieceIsAtSafePosition(piece)) { 
 									// Se a pedra atual está segura, incrementa o score baseado no valor da pedra capturada
 									possibleMove.incScore((long)(board.getLastCapturedPiece().getTypeValue() * 10) * Integer.MAX_VALUE * 10);
 									possibleMove.incChoice(1);
@@ -351,7 +351,7 @@ public class ChessAI {
 														ignorePieces.contains(piece3)) {
 													try {
 														tryToMoveTo(piece3, opponentPiece);
-														if (board.isSafeSpot(piece3) && !board.isChecked()) {
+														if (board.pieceIsAtSafePosition(piece3) && !board.isChecked(piece3.getColor())) {
 															ignorePieces.add(piece3);
 															Board.cloneBoard(recBoard, board);
 															stop = true;
@@ -372,7 +372,7 @@ public class ChessAI {
 																	ignorePieces.contains(piece3))
 																		try {
 																			tryToMoveTo(piece3, opponentPiece.getPosition());
-																			if (board.isSafeSpot(piece3) && !board.isChecked())
+																			if (board.pieceIsAtSafePosition(piece3) && !board.isChecked(piece3.getColor()))
 																				possibleMoves.add(new PossibleMove(piece3, originalPosition, position));
 																		}
 																		catch (Exception e)

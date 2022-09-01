@@ -459,21 +459,28 @@ public class Board {
 	}
 	
 	/**
-	 * Verifica se a posição informada é segura
+	 * Verifica se a pedra informada está em uma posição segura
 	 */
-	public Boolean isSafeSpot(PiecePosition position, PieceColor opponentColor) {
-		validatePosition(position, "position");
-		validateNullVar(opponentColor, "opponentColor");
-		return isFreeSlot(position) &&
-			getPieceList(opponentColor, p -> p.canMoveToPosition(position)).isEmpty();
+	public Boolean pieceIsAtSafePosition(Piece piece) {
+		validateNullVar(piece, "piece");
+		return getPieceList(piece.getOpponentColor(), p -> p.couldCapture(piece)).isEmpty();
 	}
 	
 	/**
-	 * Verifica se a peça informada está em uma posição segura
+	 * Verifica se a peça informada pode ir para uma posição segura
 	 */
-	public Boolean isSafeSpot(Piece piece) {
+	public Boolean pieceCanGoToASafePosition(Piece piece, PiecePosition positionToGo) {
 		validateNullVar(piece, "piece");
-		return isSafeSpot(piece.getPosition(), piece.getOpponentColor());
+		Board recBoard = newClonedBoard();
+		Boolean isSafe = false;
+		try {
+			removePiece(piece);
+			addPiece(positionToGo, piece);
+			isSafe = pieceIsAtSafePosition(piece);
+		}
+		catch (Exception e) {}
+		cloneBoard(recBoard, this);
+		return isSafe;
 	}
 
 	/**
@@ -541,8 +548,15 @@ public class Board {
 			throw new PieceSelectionException("It's CPU turn! Wait...");
 		if (checkMate())
 			throw new PieceSelectionException("The current game is ended (Checkmate)");
-		if (drawGame())
+		if (drawGame()) {
+			if (isDrawByBareKings())
+				throw new PieceSelectionException("The current game is ended (Draw game by Bare Kings)");
+			if (isDrawByStalemate())
+				throw new PieceSelectionException("The current game is ended (Draw game by Stalemate)");
+			if (isDrawByThreefoldRepetition())
+				throw new PieceSelectionException("The current game is ended (Draw game by Threefold-repetition)");
 			throw new PieceSelectionException("The current game is ended (Draw game)");
+		}
 		if (isFreeSlot(position))
 			throw new PieceSelectionException("There is no piece on that position");
 		if (getPieceAt(position).getColor() != getCurrentColorTurn())
@@ -799,7 +813,7 @@ public class Board {
 	public List<Piece> getCapturedBlackPieces()
 		{ return getCapturedPieces(PieceColor.BLACK, null); }
 
-	void addPiece(PiecePosition position, Piece piece) { 
+	private void addPiece(PiecePosition position, Piece piece) { 
 		validatePosition(position, "position");
 		validateNullVar(piece, "piece");
 		if (!isFreeSlot(position))
@@ -815,7 +829,7 @@ public class Board {
 		board[position.getRow()][position.getColumn()] = null;
 	}
 	
-	void removePiece(Piece piece)
+	private void removePiece(Piece piece)
 		{ removePiece(piece.getPosition()); }
 
 	/**
@@ -945,8 +959,7 @@ public class Board {
 			else
 				++repeats;
 		}
-		drawGame = getPieceList().size() == 2 || repeats == 3 ||
-				!getFriendlyPieceList(p -> p.isSameTypeOf(PieceType.KING) && ((King)p).isStaleMated()).isEmpty();
+		drawGame = getPieceList().size() == 2 || repeats == 3 || kingIsStalemated();				
 		lastMovedPiece = sourcePiece;
 		return targetPiece;
 	}
@@ -1003,22 +1016,7 @@ public class Board {
 		return !piece.getPossibleSafeMoves().isEmpty();
 	}
 	
-	/**
-	 * Verifica se a pedra na posição informada pode ir para alguma posição sem risco de ser capturada
-	 */
-	public Boolean pieceCanGoToAnySafeSpot(PiecePosition piecePosition) {
-		validatePosition(piecePosition, "position");
-		if (getPieceAt(piecePosition) == null)
-			throw new InvalidPositionException(piecePosition + " - There is no piece");
-		return pieceCanGoToAnySafeSpot(getPieceAt(piecePosition));
-	}
-
-	/**
-	 * Informe uma condição, e então será testada a movimentação pedra informada
-	 * para todas as posições possíveis até que a condição informada seja encontrada.
-	 * @return A {@code PiecePosition} onde a condição retornou {@code true}
-	 */
-	public PiecePosition testPositionsForAResult(Piece piece, Predicate<PiecePosition> resultWanted) {
+	private PiecePosition testPositionsForAResult(Piece piece, Predicate<PiecePosition> resultWanted) {
 		Board b = newClonedBoard();
 		for (PiecePosition position : piece.getPossibleMoves()) {
 			movePieceTo(piece.getPosition(), position, true);
@@ -1040,15 +1038,22 @@ public class Board {
 	/**
 	 * Verifica se a cor do turno atual está em check 
 	 */
+	public Boolean isChecked(PieceColor color)
+		{ return getPieceList(color, p -> p.isSameTypeOf(PieceType.KING) && pieceIsAtSafePosition(p)).isEmpty(); }
+
+	/**
+	 * Verifica se a cor do turno atual está em check 
+	 */
 	public Boolean isChecked()
-		{ return getFriendlyPieceList(p -> p.isSameTypeOf(PieceType.KING) && isSafeSpot(p)).isEmpty(); }
+		{ return isChecked(getCurrentColorTurn()); }
 
 	/**
 	 * Verifica se a cor informada deu check mate no adversário 
 	 */
 	public Boolean checkMate() {
+		PieceColor color = getCurrentColorTurn();
 		for (Piece piece : getFriendlyPieceList())
-			if (testPositionsForAResult(piece, e -> !isChecked()) != null)
+			if (testPositionsForAResult(piece, e -> !isChecked(color)) != null)
 				return false;
 		return true;
 	}
@@ -1075,7 +1080,12 @@ public class Board {
 	 * Retorna {@code true} se o empate foi devido á afogamento (Rei sem possibilidade de movimento, mas não sob risco de captura) 
 	 */
 	public Boolean isDrawByStalemate()
-		{ return drawGame && !getFriendlyPieceList(p -> p.isSameTypeOf(PieceType.KING) && ((King)p).isStaleMated()).isEmpty(); }
+		{ return drawGame && kingIsStalemated(); }
+	
+	private Boolean kingIsStalemated() {
+		return !getFriendlyPieceList(p -> p.isSameTypeOf(PieceType.KING) &&
+				((King)p).isStaleMated() && testPositionsForAResult(p, e -> ((King)p).isStaleMated()) != null).isEmpty();
+	}
 
 	/**
 	 * Adiciona uma nova pedra no tabuleiro

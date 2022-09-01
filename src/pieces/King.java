@@ -54,24 +54,17 @@ public class King extends Piece  {
 	}
 	
 	public Boolean isStaleMated() {
+		if (getBoard().pieceCanGoToAnySafeSpot(this))
+			return false;
 		Piece piece;
 		PiecePosition p = new PiecePosition(getPosition());
 		int[][] inc = {{-1,-1,-1,1,1,1,0,0},{-1,0,1,-1,0,1,-1,1}};
 		for (int dir = 0; dir < 8; dir++) {
 			p.setValues(getPosition());
 			p.incValues(inc[0][dir], inc[1][dir]);
-			if (getBoard().isSafeSpot(p, getOpponentColor()))
-				return false;
-			else if ((piece = getBoard().getPieceAt(p)) != null) {
-				if (piece.isSameColorOf(getColor()) && !piece.getPossibleMoves().isEmpty())
-					return false;
-				else if (!piece.isSameColorOf(getColor())) {
-									for (Piece piece2 : getBoard().getFriendlyPieceList())
-										if (piece2.couldCapture(piece))
-											return false;
-									return true;
-				}
-			}
+			if ((piece = getBoard().getPieceAt(p)) != null &&
+					piece.isSameColorOf(getColor()) && !piece.getPossibleMoves().isEmpty())
+						return false;
 		}
 		return true;
 	}

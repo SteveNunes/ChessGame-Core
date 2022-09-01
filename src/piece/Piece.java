@@ -70,7 +70,7 @@ public abstract class Piece implements Comparable<Piece> {
 	 * Define a posição do tabuleiro onde a pedra atual está
 	 */
 	public void setPosition(PiecePosition position)
-		{ this.position = position; }
+		{ this.position = position == null ? null : new PiecePosition(position); }
 	
 	/**
 	 * Define a linha e coluna do tabuleiro onde a pedra atual está
@@ -199,14 +199,6 @@ public abstract class Piece implements Comparable<Piece> {
 		{ return getPosition().equals(position); }
 	
 	/**
-	 * Verifica se a pedra atual pode capturar a pedra informada
-	 */
-	public Boolean couldCapture(Piece targetPiece) {
-		return targetPiece != null && !isSameColorOf(targetPiece) &&
-			getPossibleMoves().contains(targetPiece.getPosition());
-	}
-	
-	/**
 	 * Verifica se o tipo da pedra atual é mais forte que o tipo da pedra informada
 	 */
 	public Boolean strongerThan(Piece piece)
@@ -219,6 +211,14 @@ public abstract class Piece implements Comparable<Piece> {
 		{ return getType().getIntValue() >= piece.getType().getIntValue(); }
 
 	/**
+	 * Verifica se a pedra atual pode capturar a pedra informada
+	 */
+	public Boolean couldCapture(Piece targetPiece) {
+		return targetPiece != null && !isSameColorOf(targetPiece) &&
+				getPossibleMoves().contains(targetPiece.getPosition());
+	}
+
+	/**
 	 * Verifica se a pedra atual pode ser capturada pela pedra informada
 	 */
 	public Boolean couldBeCapturedBy(Piece targetPiece) {
@@ -229,7 +229,7 @@ public abstract class Piece implements Comparable<Piece> {
 	public List<PiecePosition> getPossibleSafeMoves() {
 		List<PiecePosition> list = new ArrayList<>();
 		for (PiecePosition position : getPossibleMoves())
-			if (getBoard().isSafeSpot(position, getOpponentColor()))
+			if (getBoard().pieceCanGoToASafePosition(this, position))
 				list.add(position);
 		return list;
 	}

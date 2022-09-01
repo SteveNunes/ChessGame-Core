@@ -15,16 +15,19 @@ public class Pawn extends Piece {
 		{ super(board, position, PieceType.PAWN, color); }
 	
 	@Override
-	public List<PiecePosition> getPossibleMoves() {
+	public List<PiecePosition> getPossibleMoves()
+		{ return getPossibleMoves(false); }
+
+	private List<PiecePosition> getPossibleMoves(Boolean capturePositions) {
 		List<PiecePosition> moves = new ArrayList<>();
 		int inc = getColor() == PieceColor.BLACK ? 1 : -1;
 		PiecePosition p = new PiecePosition(getPosition());
 		PiecePosition p2 = new PiecePosition(p);
 		// Front check (1 or 2 steps further (2 if this piece was never moved before))
-		for (int row = 1; row <= (wasMoved() ? 1 : 2); row++) {
+		for (int row = 1; row <= (capturePositions || wasMoved() ? 1 : 2); row++) {
 			p.incRow(inc);
 			// Diagonal check for capture
-			if (getBoard().isFreeSlot(p))
+			if (!capturePositions && getBoard().isFreeSlot(p))
 				moves.add(new PiecePosition(p));
 			for (int i = -1; row == 1 && i <= 1; i += 2) {
 				p2.setValues(p);
@@ -42,6 +45,12 @@ public class Pawn extends Piece {
 				break;
 		}
 		return moves;
+	}
+	
+	@Override
+	public Boolean couldCapture(Piece targetPiece) {
+		return targetPiece != null && !isSameColorOf(targetPiece) &&
+				getPossibleMoves(true).contains(targetPiece.getPosition());
 	}
 	
 	@Override

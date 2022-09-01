@@ -34,7 +34,7 @@ public class Bishop extends Piece  {
 		}
 		return moves;
 	}
-	
+
 	@Override
 	public String toString()
 		{ return PieceType.BISHOP.name(); }
