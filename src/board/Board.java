@@ -71,14 +71,6 @@ public class Board {
 	}
 	
 	/**
-	 * Construtor que recebe como parâmetro a cor que iniciará a partida atual
-	 */
-	public Board(PieceColor startTurn) {
-		this();
-		currentColorTurn = startTurn;		
-	}
-	
-	/**
 	 * Reseta o tabuleiro atual
 	 */
 	public void reset() {
@@ -93,7 +85,7 @@ public class Board {
 		selectedPiece = null;
 		enPassantPiece = null;
 		promotedPiece = null;
-		currentColorTurn = new SecureRandom().nextInt(2) == 0 ? PieceColor.BLACK : PieceColor.WHITE;
+		currentColorTurn = PieceColor.WHITE;
 		capturedPieces.clear();
 		movedTurns.clear();
 		lastBoards = new ArrayList<>();
@@ -110,7 +102,7 @@ public class Board {
 	 * Define o modo de jogo
 	 */
 	public void setPlayMode(ChessPlayMode mode) {
-		if (boardWasValidated)
+		if (!boardWasValidated)
 			throw new BoardException("You can't do it after validated the board. Call this metod before validating the board.");
 		this.playMode = mode;
 	}
