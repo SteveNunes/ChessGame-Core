@@ -1,6 +1,5 @@
 package board;
 
-import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -47,6 +46,7 @@ public class Board {
 	private Piece lastMovedPiece;
 	private Piece promotedPiece;
 	private PieceColor currentColorTurn;
+	private PieceColor cpuColor;
 	private Boolean boardWasValidated;
 	private Boolean drawGame;
 	private ChessAI chessAI;
@@ -67,6 +67,7 @@ public class Board {
 		capturedPieces = new ArrayList<>();
 		movedTurns = new HashMap<>();
 		playMode = ChessPlayMode.PLAYER_VS_PLAYER;
+		cpuColor = PieceColor.BLACK;
 		reset(); 
 	}
 	
@@ -90,6 +91,25 @@ public class Board {
 		movedTurns.clear();
 		lastBoards = new ArrayList<>();
 		resetBoard(board);
+	}
+
+	/**
+	 * Retorna a cor das pedras da CPU
+	 */
+	public PieceColor getCpuColor()
+		{ return cpuColor; }
+	
+	/**
+	 * Altera a cor das pedras da CPU. Só pode ser feito antes de mover qualquer pedra no início de uma nova partida.
+	 */
+	public void setCpuColor(PieceColor color) {
+		if (playMode != ChessPlayMode.PLAYER_VS_CPU)
+			throw new GameException("You can only change it on \"Player vs CPU\" mode");
+		if (turns > 1)
+			throw new GameException("You can't do it after running the first turn");
+		cpuColor = color;
+		if (getCurrentColorTurn() == color && playMode == ChessPlayMode.PLAYER_VS_CPU)
+			getChessAI().doCpuSelectAPiece();
 	}
 	
 	/**
@@ -246,7 +266,7 @@ public class Board {
 	 */
 	public Boolean isCpuTurn() {
 		return playMode != ChessPlayMode.PLAYER_VS_PLAYER &&
-			(playMode == ChessPlayMode.CPU_VS_CPU || currentColorTurn == PieceColor.BLACK); 
+			(playMode == ChessPlayMode.CPU_VS_CPU || currentColorTurn == cpuColor); 
 	}
 	
 	private Boolean checkPieceCount(PieceType type, PieceColor color, Predicate<Integer> predicate)
