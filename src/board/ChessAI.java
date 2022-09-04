@@ -106,172 +106,193 @@ public class ChessAI {
 		{ return anyPieceCouldCapture(color.getOppositeColor()); }
 	
 	private List<PossibleMove> testPossibleMoves(PieceColor color, Predicate<PossibleMove> predicate, Boolean startTriesFromStrongestPieces) {
-		List<PossibleMove> list = new ArrayList<>(); 
+		List<PossibleMove> possibleMoves = new ArrayList<>(); 
 		Board recBoard = board.newClonedBoard();
-		List<Piece> pieces = new ArrayList<>(board.sortPieceListByPieceValue(board.getPieceListByColor(color, p -> !ignorePieces.contains(p))));
-		List<Piece> safePiecesBefore = new ArrayList<>();
-		for (Piece piece : board.getPieceList())
-			if (board.pieceIsAtSafePosition(piece))
-				safePiecesBefore.add(piece);
+		List<Piece> pieces = new ArrayList<>(board.sortPieceListByPieceValue(board.getPieceListByColor(color, p -> !ignorePieces.contains(p)), !startTriesFromStrongestPieces));
+		List<Piece> safePiecesBefore = board.getPieceListByColor(color,
+				p -> board.pieceIsAtSafePosition(p));
+		Piece opponentKing = board.getPieceListByColor(color.getOppositeColor(),
+				p -> p.isSameTypeOf(PieceType.KING)).get(0);
+		List<PiecePosition> otherKingThreatenPositions = new ArrayList<>(opponentKing.getPossibleSafeMoves());
+		float opponentInsightScore = 0;
+		float friendlyInsightScore = 0;
 		for (Piece piece : pieces) {
 			ignorePositions.clear();
 			List<PiecePosition> positions = new ArrayList<>(piece.getPossibleMoves());
-			PiecePosition positionBefore = new PiecePosition(piece.getPosition());
 			for (PiecePosition position : positions)
 				if (!isIgnoredPosition(piece, position)) {
 					try {
+						PiecePosition positionBefore = new PiecePosition(piece.getPosition());
 						tryToMoveTo(piece, position);
 						PossibleMove possibleMove = new PossibleMove(piece, positionBefore, position);
+						possibleMoves.add(possibleMove);
+						if (new SecureRandom().nextInt(2) == 0)
+							possibleMove.incScore((long)piece.getIntTypeValue());
 						if (predicate.test(possibleMove)) {
 							Board b = board.newClonedBoard();
-							long opponentInsightScore = 0;
-							int totalOpponentInsights = 0;
-							for (Piece opponentPiece : board.getPieceListByColor(color.getOppositeColor())) {
-								if (piece.couldCapture(opponentPiece)) {
-									opponentInsightScore += (long)(opponentPiece.getTypeValue() * 10);
-									totalOpponentInsights++;
+							if (board.drawGame()) { // Se a pedra movida resultou em um empate
+								possibleMove.incScore(-Long.MAX_VALUE);
+								possibleMove.incChoice(1);
+							}
+							if (safePiecesBefore.contains(piece) && !board.pieceIsAtSafePosition(piece)) {
+								// Se a pedra movida estava segura antes, e agora não está mais
+								if (!board.pieceWasCaptured()) {
+									// Ela não realizou captura no último turno (Ficou em risco por nada)
+									possibleMove.decScore((long)(Long.MAX_VALUE / 6 * piece.getTypeValue()));
+									possibleMove.incChoice(2);
 								}
-								for (Piece friendlyPiece : board.getPieceListByColor(color))
-									if (opponentPiece.couldCapture(friendlyPiece)) {
-										possibleMove.decScore((long)(friendlyPiece.getTypeValue() * 10) * Integer.MAX_VALUE);
-										possibleMove.incChoice(4096);
+								else if (board.getLastCapturedPiece().getTypeValue() < piece.getTypeValue()) {
+									// Ela capturou uma pedra de menor valor (A troca não valeu a pena)
+									possibleMove.decScore((long)(Long.MAX_VALUE / 6 * (piece.getTypeValue() - board.getLastCapturedPiece().getTypeValue())));
+									possibleMove.incChoice(4);
+								}
+								else {
+									// Ela capturou uma pedra de valor igual ou maior (A troca valeu a pena)
+									possibleMove.incScore((long)(Long.MAX_VALUE / 18 * board.getLastCapturedPiece().getTypeValue()));
+									possibleMove.incChoice(8);
+								}
+							}
+							else if (!safePiecesBefore.contains(piece) && board.pieceIsAtSafePosition(piece)) {
+								// Se a pedra movida não estava segura antes, e agora está
+								List<Piece> ps = getListOfPiecesThatCouldCaptureThis(piece);
+								if (ps.size() > 1) {
+									/* SE havia mais de uma pedra ameaçando a pedra movida, incrementa
+									 * o score, forçando a pedra a de fato permanecer onde parou
+									 */
+									possibleMove.incScore((long)(Long.MAX_VALUE / 18 * piece.getTypeValue()));
+									possibleMove.incChoice(16);
+								}
+								else {
+									/* SE havia apenas 1 pedra ameaçando a pedra movida, e a pedra movida
+									 * poderia ter capturado ela, decrementa o score, evitando que a pedra
+									 * movida escolha essa posição de fato
+									 */
+									possibleMove.decScore((long)(Long.MAX_VALUE / 7 * ps.get(0).getTypeValue()));
+									possibleMove.incChoice(32);
+								}
+							}
+							if (board.checkMate()) { // Se a pedra movida resultou em um checkmate
+								possibleMove.incScore(Long.MAX_VALUE);
+								possibleMove.incChoice(64);
+							}
+							if (board.pieceWasCaptured() && board.pieceIsAtSafePosition(piece)) { 
+								// Se a pedra movida capturou uma pedra adversária em segurança
+								possibleMove.incScore((long)(Long.MAX_VALUE / 6 * board.getLastCapturedPiece().getTypeValue()));
+								possibleMove.incChoice(128);
+							}
+							if (board.isChecked()) {
+								// Se a pedra movida resultou em um check (Seguro ou não)
+								possibleMove.incScore(board.pieceIsAtSafePosition(piece) ? Long.MAX_VALUE / 2 : (-Long.MAX_VALUE / 2));
+								possibleMove.incChoice(board.pieceIsAtSafePosition(piece) ? 256 : 512);
+							}
+							if (piece.isSameTypeOf(PieceType.PAWN) && board.pieceIsAtSafePosition(piece) &&
+									Math.abs(positionBefore.getRow() - position.getRow()) > 1 &&
+									(piece.getColumn() == 3 || piece.getColumn() == 4)) {
+										// Se a pedra movida for um peão que andou 2 tiles pelas colunas no meio e está seguro
+										possibleMove.incScore(Long.MAX_VALUE / 150);
+										possibleMove.incChoice(1024);
+							}
+							// Gera score negativo baseado em pedras aliadas que estão sob risco de captura
+							friendlyInsightScore = 0;
+							for (Piece friendlyPiece : board.getPieceListByColor(color))
+								if (!board.pieceIsAtSafePosition(friendlyPiece)) {
+									if (friendlyPiece != piece) {
+										// Se não for a pedra movida
+										friendlyInsightScore += friendlyPiece.getTypeValue();
+										/* Testa se a pedra movida estava COBRINDO a pedra em risco de captura.
+										 * Se sim, gera um score negativo para evitar que a pedra movida pare
+										 * de cobrir a pedra ameaçada de captura.
+										 */
+										friendlyPiece.setColor(color.getOppositeColor());
+										board.removePiece(piece);
+										board.addPiece(positionBefore, piece);
+										if (piece.canMoveToPosition(friendlyPiece.getPosition())) {
+											possibleMove.decScore((long)(Long.MAX_VALUE / 7 * friendlyPiece.getTypeValue()));
+											possibleMove.incChoice(1048576);
+										}
+										friendlyPiece.setColor(color);
+										Board.cloneBoard(recBoard, board);
 									}
-								if (!board.pieceIsAtSafePosition(opponentPiece) && safePiecesBefore.contains(opponentPiece)) {
-									// Se no turno testado alguma pedra adversária ficou sob ameaça de captura
-									if (piece.couldCapture(opponentPiece) && !opponentPiece.couldCapture(piece) && board.pieceIsAtSafePosition(piece)) {
-										// Se uma pedra atual pode capturar a pedra adversária em segurança...
+									else {
+										possibleMove.decScore((long)(Long.MAX_VALUE / 6 * piece.getTypeValue()));
+										possibleMove.incChoice(524288);
+									}
+								}
+							// Gera score positivo baseado em pedras adversárias que estão sob risco de captura
+							opponentInsightScore = 0;
+							for (Piece opponentPiece : board.getPieceListByColor(color.getOppositeColor())) {
+								if (!board.pieceIsAtSafePosition(opponentPiece))
+									opponentInsightScore += opponentPiece.getTypeValue();
+								if (safePiecesBefore.contains(opponentPiece) && !board.pieceIsAtSafePosition(opponentPiece) &&
+										piece.couldCapture(opponentPiece) && board.pieceIsAtSafePosition(piece)) {
+										// Se a pedra movida está ameaçando uma pedra adversária em segurança
 										try {
 											Piece lastCaptured = board.getLastCapturedPiece();
-											tryToMoveTo(piece, opponentPiece.getPosition()); // Simula a captura para ver como vai ficar a situação da pedra capturante após a captura
+											// Simula a captura para ver como vai ficar a situação da pedra aliada após a captura
+											tryToMoveTo(piece, opponentPiece.getPosition());
 											if (board.pieceIsAtSafePosition(piece)) { 
 												/* Se após a captura, a pedra capturante ficou segura, incrementa
 												 * o score no valor da pedra adversária que pode ser capturada
 												 */
-												possibleMove.incScore((long)(opponentPiece.getTypeValue() * 10) * Integer.MAX_VALUE * 5);
-												possibleMove.incChoice(8);
+												possibleMove.incScore((long)(Long.MAX_VALUE / 7 * opponentPiece.getTypeValue()));
+												possibleMove.incChoice(2048);
 											}
 											else { // Se após a captura, a pedra capturante não ficar segura...
 												if (piece.strongerThan(lastCaptured)) {
-													/* Se a pedra capturada por último for de MENOR valor que a pedra,
-													 * decrementa o score baseado no valor da pedra capturada - pedra
-													 * capturante, evitando assim que a CPU suicide pedras capturando
-													 * outras de menor valor que a pedra capturante.
-													 */
-													possibleMove.decScore((long)(((piece.getTypeValue() - lastCaptured.getTypeValue())) * 10) * Integer.MAX_VALUE * 5);
-													possibleMove.incChoice(32);
+														/* Se a pedra capturada por último for de MENOR valor que a pedra capturante,
+														 * incrementa o score baseado no (VALOR DA PEDRA CAPTURADA - VALOR DA PEDRA
+														 * CAPTURANTE), evitando assim que a CPU suicide pedras capturando outras de
+														 * menor valor que a pedra capturante.
+														 */
+														possibleMove.incScore((long)(Long.MAX_VALUE / 9 * (piece.getTypeValue() - lastCaptured.getTypeValue())));
+														possibleMove.incChoice(4096);
 												}
 												else {
-													/* Se a pedra capturada por último for de MAIOR valor que a pedra,
-													 * incrementa o score baseado no valor da pedra capturada - pedra
-													 * capturante.
+													/* Se a pedra capturada por último for de MAIOR valor que a pedra, incrementa
+													 * o score baseado no (VALOR DA PEDRA CAPTURADA - VALOR DA PEDRA CAPTURANTE)
 													 */
-													possibleMove.incScore((long)(((lastCaptured.getTypeValue() - piece.getTypeValue()) + 0.1) * 10) * Integer.MAX_VALUE * 5);
-													possibleMove.incChoice(16);
+													possibleMove.incScore((long)(Long.MAX_VALUE / 14 * ((lastCaptured.getTypeValue() - piece.getTypeValue()) + 0.1)));
+													possibleMove.incChoice(8192);
 												}
 											}
 										}
 										catch (Exception e) {}
 										Board.cloneBoard(b, board);
 									}
-									else if (board.getLastMovedPiece() == piece && opponentPiece.couldCapture(piece)) { 
-										// Se a pedra ameaçada de captura puder capturar a pedra aliada movida, decrementa o score baseado no valor da pedra aliada
-										possibleMove.decScore((long)((piece.getTypeValue()) * 10) * Integer.MAX_VALUE * 10);
-										possibleMove.incChoice(64);
-									}
 									if (opponentPiece.isSameTypeOf(PieceType.KING)) {
 										if (!piece.isSameTypeOf(PieceType.PAWN) && board.pieceIsAtSafePosition(piece)) {
 											/* Incrementa o score baseado na distância da pedra atual para a pedra do rei,
 											 * desde que essa posição nao coloque a pedra em perigo (apenas não-peôes)
 											 */
-											int disX = Math.abs(piece.getColumn() - position.getColumn()); 
-											int disY = Math.abs(piece.getRow() - position.getRow());
+											int disX = Math.abs(opponentPiece.getColumn() - position.getColumn()); 
+											int disY = Math.abs(opponentPiece.getRow() - position.getRow());
 											possibleMove.decScore(disX > disY ? disX : disY);
-											possibleMove.incChoice(128);
+											possibleMove.incChoice(16384);
 										}
-										/* Decrementa o score se a pedra atual estava posicionada de forma que a linha
-										 * de captura dela abrangia algum dos possiveis tiles de movimento do rei
-										 * adversário, e agora não esta mais, e isso não aconteceu pelo fato da pedra
-										 * ter capturado uma outra pedra adversária (Tentar manter paradas as pedras
-										 * que estão bloqueando o caminho do Rei)
-										 */
-										if (opponentPiece.canMoveToPosition(positionBefore) && board.isFreeSlot(positionBefore) &&
-												!opponentPiece.canMoveToPosition(position) && board.isFreeSlot(position) &&
-												(!board.pieceWasCaptured() || board.getLastMovedPiece() != piece)) {
-													possibleMove.setScore(Long.MAX_VALUE / 2);
-													possibleMove.incChoice(256);
+										if (!board.pieceWasCaptured()) { // Se o ultimo movimento não foi uma captura...
+											if (otherKingThreatenPositions.size() > opponentPiece.getPossibleSafeMoves().size()) {
+												// Se o rei adversário ficou com menos possibilidade de movimentos agora do que antes
+												possibleMove.incScore(Long.MAX_VALUE / 12);
+												possibleMove.incChoice(32768);
+											}
+											else if (otherKingThreatenPositions.size() < opponentPiece.getPossibleSafeMoves().size()) {
+												// Se o rei adversário ficou com mais possibilidade de movimentos agora do que antes
+												possibleMove.decScore(Long.MAX_VALUE / 12);
+												possibleMove.incChoice(65536);
+											}
 										}
 									}
-								}
 							}
-							for (Piece piece2 : board.getPieceListByColor(color))
-								if (!board.pieceIsAtSafePosition(piece2) && safePiecesBefore.contains(piece2)) {
-									/* Se pedra que estava segura anteriormente, estiver em perigo no turno atual,
-									 * decrementar o score 'pouco ou muito', dependendo se a pedra movida for de
-									 * valor menor que a pedra que ficou desprotegida
-									 */
-									if (piece2.strongerThan(board.getLastMovedPiece())) {  
-										possibleMove.decScore((long)(piece2.getTypeValue() * 10));
-										possibleMove.incChoice(512);
-									}
-									else {
-										possibleMove.decScore(((long)(((piece2.getTypeValue() - board.getLastMovedPiece().getTypeValue()) + 0.1) * 10)));
-										possibleMove.incChoice(1024);
-									}
-								}
-							if (totalOpponentInsights > 0) {
-								possibleMove.incScore((long)Math.pow(opponentInsightScore, totalOpponentInsights));
-								possibleMove.incChoice(2048);
-							}
-							if (piece.isSameTypeOf(PieceType.PAWN) && board.pieceCanGoToASafePosition(piece, position)) {
-								if (Math.abs(positionBefore.getRow() - position.getRow()) > 1) {
-									/* Se em alguma situacao só restar movimentos com peôes, prioriza
-									 * os que podem andar 2 tiles, de preferencia pelo meio
-									 */
-									possibleMove.setScore(Integer.MAX_VALUE - (piece.getColumn() == 3 || piece.getColumn() == 4 ? 0 : 1));
-									possibleMove.incChoice(piece.getColumn() == 3 || piece.getColumn() == 4 ? 16384 : 8192);
-								}
-								else {
-									possibleMove.incScore(Integer.MAX_VALUE - 2);
-									possibleMove.incChoice(32768);
-								}
-							}
-							if (board.drawGame()) { // Da um score negativo caso a última jogada testada resulte em um empate
-								possibleMove.setScore(-Long.MAX_VALUE);
-								possibleMove.incChoice(65536);
-							}
-							else if (board.checkMate()) { // Incrementa o score se a última jogada testada resultou num checkMate
-								possibleMove.setScore(Long.MAX_VALUE);
+							if (friendlyInsightScore > 0) {
+								// Se há pedras aliadas sob risco de captura, decrementa o score baseado no total de pedras aliadas que estão sob risco
+								possibleMove.decScore((long)(friendlyInsightScore * Integer.MAX_VALUE * 10));
 								possibleMove.incChoice(131072);
 							}
-							else if (board.isChecked()) { // Decrementa o score se a última jogada testada resultou num check seguro
-								possibleMove.incScore(board.pieceIsAtSafePosition(piece) ? Long.MAX_VALUE / 3 : -(Long.MAX_VALUE / 3));
-								possibleMove.incChoice(board.pieceIsAtSafePosition(piece) ? 262144 : 524288);
+							if (opponentInsightScore > 0) {
+								// Se há pedras adversárias sob risco de captura, incrementa o score baseado no total de pedras adversárias que estão sob risco
+								possibleMove.incScore((long)(opponentInsightScore * Integer.MAX_VALUE));
+								possibleMove.incChoice(262144);
 							}
-							if (board.pieceWasCaptured() && board.getLastMovedPiece() == piece) { 
-								// Se houve captura e a pedra capturante for a pedra atual
-								if (board.pieceIsAtSafePosition(piece)) { 
-									// Se a pedra atual está segura, incrementa o score baseado no valor da pedra capturada
-									possibleMove.incScore((long)(board.getLastCapturedPiece().getTypeValue() * 10) * Integer.MAX_VALUE * 10);
-									possibleMove.incChoice(1);
-								}
-								else if (board.getLastCapturedPiece().strongerOrSameThan(piece)) {
-									/* Se a pedra capturada era de maior valor ou igual, incrementa o score, mas
-									 * não tanto como seria se a pedra capturante estivesse em segurança.
-									 */
-									possibleMove.incScore((long)(((piece.getTypeValue() - board.getLastCapturedPiece().getTypeValue()) + 0.1) * 10) * Integer.MAX_VALUE * 5);
-									possibleMove.incChoice(2);
-								}
-								else {
-									/* Se a pedra capturada era de menor valor que a pedra capturante,
-									 * decrementa o score baseado na diferença entre os valores da pedra
-									 * capturante e pedra capturada (Isso evita com que a CPU perca uma
-									 * pedra de maior valor, capturando uma de menor valor)
-									 */
-									possibleMove.setScore(Long.MAX_VALUE - ((long)(((board.getLastCapturedPiece().getTypeValue() - piece.getTypeValue())) * 10) * Integer.MAX_VALUE * 10));
-									possibleMove.incChoice(4);
-								}
-							}
-							list.add(possibleMove);
 						}
 					}
 					catch (Exception e)
@@ -280,7 +301,7 @@ public class ChessAI {
 				}
 		}
 			
-		return list.isEmpty() ? null : list;
+		return possibleMoves.isEmpty() ? null : possibleMoves;
 	}
 
 	@SuppressWarnings("unused")
@@ -477,30 +498,31 @@ class PossibleMove implements Comparable<PossibleMove> {
 	public List<String> getChoicesInfo() {
 		List<String> infos = new ArrayList<>();
 		String[] s = {
-				"Captura segura de pedra adversária",
-				"Captura insegura de pedra adversária de valor MAIOR ou IGUAL",
-				"Captura insegura de pedra adversária de valor MENOR",
-				"Colocando pedra adversária em risco de captura, podendo capturá-la em segurança",
-				"Colocando pedra adversária de valor MAIOR que a pedra atual em risco de captura, porém se capturá-la, irá ficar na mira de outra pedra adversária",
-				"Colocando pedra adversária de valor MENOR que a pedra atual em risco de captura, porém se capturá-la, irá ficar na mira de outra pedra adversária",
-				"Ficou sob risco de captura de pedra adversária",
+				"Pedra movida resultou em empate",
+				"Pedra movida se colocou em risco por nada",
+				"Pedra movida se colocou em risco após capturar uma pedra de menor valor",
+				"Pedra movida se colocou em risco após capturar uma pedra de valor igual ou maior",
+				"Pedra movida se livrou do risco de captura",
+				"Pedra movida se livrou do risco de captura mesmo podendo ter capturado a pedra que a ameaçava",
+				"Pedra movida resultou em checkmate",
+				"Pedra movida resultou em captura segura",
+				"Pedra movida resultou em check seguro",
+				"Pedra movida resultou em check inseguro",
+				"Peão movendo duas casas pelas colunas do meio",
+				"Pedra movida está ameaçando pedra adversária, com a possibilidade de capturá-la em segurança",
+				"Pedra movida está ameaçando pedra adversária de menor valor, sem a possibilidade de capturá-la em segurança",
+				"Pedra movida está ameaçando pedra adversária de valor igual ou maior, sem a possibilidade de capturá-la em segurança",
 				"Distância segura do Rei adversário",
-				"Pedra deixou de ameaçar uma das posições possíveis do Rei adversário",
-				"Desprotegeu pedra de MAIOR valor que a pedra movida",
-				"Desprotegeu pedra de MENOR valor que a pedra movida",
-				"Deixou pedras adversárias sob risco de captura",
-				"Ficou com pedras aliadas sob risco de captura",
-				"Avançando 2 tiles com peão",
-				"Avançando 2 tiles com peão pelas colunas do meio",
-				"Avançando com peão",
-				"Jogo terminou em empate",
-				"Checkmate",
-				"Check seguro",
-				"Check inseguro"
+				"Pedra movida resultou em Rei adversário com mais possibilidades de movimento",
+				"Pedra movida resultou em Rei adversário com menos possibilidades de movimento",
+				"Há pedras aliadas sob risco de captura",
+				"Há pedras adversárias sob risco de captura",
+				"A pedra movida está sob risco de captura",
+				"Pedra movida deixou de cobrir pedra aliada em risco de captura"
 		};
 		for (int n = 1, i = 0; i < s.length && n <= choice; n += n, i++)
 			if ((n & choice) > 0)
-				infos.add(n + " - " + s[i]);
+				infos.add(n + " - " + s[i] + " (" + score + ")");
 		if (infos.isEmpty())
 			infos.add("Nenhuma lógica retornada");
 		return infos;
@@ -516,15 +538,17 @@ class PossibleMove implements Comparable<PossibleMove> {
 	
 	public void setScore(long val)
 		{ score = val; }
-
-	public void decScore(long val) {
-		if (val < 0 && (score -= val) > 0)
-			score = Long.MIN_VALUE;
-	}
-
+	
+	public void decScore(long val)
+		{ incScore(-val); }
+	
 	public void incScore(long val) {
-		if (val > 0 && (score += val) < 0)
-			score = Long.MAX_VALUE;
+		long l = score;
+		score += val;
+		if (val < 0 && score > l)
+			score = -Long.MIN_VALUE;
+		else if (val > 0 && score < l)
+			score = Long.MIN_VALUE;
 	}
 
 	public Piece getPiece()

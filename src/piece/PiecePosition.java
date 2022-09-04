@@ -6,7 +6,8 @@ import exceptions.BoardException;
 
 public class PiecePosition {
 
-	private int row, column;
+	private int row;
+	private int column;
 	
 	public PiecePosition(int row, int column)
 		{ setValues(row, column); }

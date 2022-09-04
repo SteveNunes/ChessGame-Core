@@ -825,7 +825,7 @@ public class Board {
 	public List<Piece> getCapturedBlackPieces()
 		{ return getCapturedPieces(PieceColor.BLACK, null); }
 
-	private void addPiece(PiecePosition position, Piece piece) { 
+	void addPiece(PiecePosition position, Piece piece) { 
 		validatePosition(position, "position");
 		validateNullVar(piece, "piece");
 		if (!isFreeSlot(position))
@@ -841,7 +841,7 @@ public class Board {
 		board[position.getRow()][position.getColumn()] = null;
 	}
 	
-	private void removePiece(Piece piece)
+	void removePiece(Piece piece)
 		{ removePiece(piece.getPosition()); }
 
 	/**
