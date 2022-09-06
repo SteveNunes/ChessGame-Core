@@ -2,6 +2,7 @@ package board;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -605,10 +606,9 @@ public class Board {
 	}
 
 	public List<Piece> sortPieceListByPieceValue(List<Piece> pieceList, Boolean fromStrongestToWeakest) {
-		if (!fromStrongestToWeakest)
-			pieceList.sort((p1, p2) -> p1.compareTo(p2));
-		else
-			pieceList.sort((p1, p2) -> p2.compareTo(p1));
+		Collections.sort(pieceList);
+		if (fromStrongestToWeakest)
+			Collections.reverse(pieceList);
 		return pieceList;
 	}
 	
@@ -974,6 +974,17 @@ public class Board {
 		drawGame = getPieceList().size() == 2 || repeats == 3 || kingIsStalemated();				
 		lastMovedPiece = sourcePiece;
 		return targetPiece;
+	}
+	
+	/**
+	 * Returna se é possível executar o método {@code movePieceTo()} com sucesso
+	 */
+	public Boolean checkIfCanMovePieceTo(PiecePosition targetPos) {
+		try
+			{ movePieceTo(targetPos); }
+		catch (Exception e)
+			{ return false; }
+		return true;
 	}
 	
 	/**

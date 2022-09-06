@@ -75,6 +75,6 @@ public class PiecePosition {
 	}
 	@Override
 	public String toString()
-		{ return "[" + getRow() + ", " + getColumn() + "]"; }
+		{ return "[" + new char[]{'a','b','c','d','e','f','g','h'}[getColumn()] + (8 - getRow()) + "]"; }
 	
 }

@@ -21,7 +21,6 @@ public class ChessAI {
 	private Boolean debugging = false;
 	private Board board = null;
 	private int cpuLastChoice;
-	private Piece cpuSelectedPiece;
 	private PiecePosition cpuSelectedPositionToMove;
 	private Map<Piece, List<PiecePosition>> ignorePositions;
 	private List<Piece> ignorePieces;
@@ -38,7 +37,6 @@ public class ChessAI {
 	 * Reseta a seleção feita atualmente pela CPU
 	 */
 	public void reset() {
-		cpuSelectedPiece = null;
 		cpuSelectedPositionToMove = null;
 		cpuLastChoice = -1;
 		ignorePositions = new HashMap<>();
@@ -79,7 +77,6 @@ public class ChessAI {
 	}
 
 	private void tryToMoveTo(PiecePosition sourcePos, PiecePosition targetPos) {
-		cpuSelectedPiece = board.getPieceAt(sourcePos);
 		cpuSelectedPositionToMove = new PiecePosition(targetPos);
 		board.movePieceTo(sourcePos, targetPos, false);
 	}
@@ -130,68 +127,49 @@ public class ChessAI {
 							possibleMove.incScore((long)piece.getIntTypeValue());
 						if (predicate.test(possibleMove)) {
 							Board b = board.newClonedBoard();
-							if (board.drawGame()) { // Se a pedra movida resultou em um empate
-								possibleMove.incScore(-Long.MAX_VALUE);
-								possibleMove.incChoice(1);
-							}
-							if (safePiecesBefore.contains(piece) && !board.pieceIsAtSafePosition(piece)) {
+							if (board.drawGame()) // Se a pedra movida resultou em um empate
+								possibleMove.incScore(1, -Long.MAX_VALUE);
+							if (!board.pieceIsAtSafePosition(piece)) {
 								// Se a pedra movida estava segura antes, e agora não está mais
-								if (!board.pieceWasCaptured()) {
-									// Ela não realizou captura no último turno (Ficou em risco por nada)
-									possibleMove.decScore((long)(Long.MAX_VALUE / 6 * piece.getTypeValue()));
-									possibleMove.incChoice(2);
-								}
-								else if (board.getLastCapturedPiece().getTypeValue() < piece.getTypeValue()) {
-									// Ela capturou uma pedra de menor valor (A troca não valeu a pena)
-									possibleMove.decScore((long)(Long.MAX_VALUE / 6 * (piece.getTypeValue() - board.getLastCapturedPiece().getTypeValue())));
-									possibleMove.incChoice(4);
-								}
-								else {
-									// Ela capturou uma pedra de valor igual ou maior (A troca valeu a pena)
-									possibleMove.incScore((long)(Long.MAX_VALUE / 18 * board.getLastCapturedPiece().getTypeValue()));
-									possibleMove.incChoice(8);
-								}
+								// Ela não realizou captura no último turno (Ficou em risco por nada)
+								if (!board.pieceWasCaptured())
+									possibleMove.decScore(2, (long)(Long.MAX_VALUE / 6 * piece.getTypeValue()));
+								// Ela capturou uma pedra de menor valor (A troca não valeu a pena)
+								else if (board.getLastCapturedPiece().getTypeValue() < piece.getTypeValue())
+									possibleMove.decScore(4, (long)(Long.MAX_VALUE / 6 * (piece.getTypeValue() - board.getLastCapturedPiece().getTypeValue())));
+								else // Ela capturou uma pedra de valor igual ou maior (A troca valeu a pena)
+									possibleMove.incScore(8, (long)(Long.MAX_VALUE / 9 * board.getLastCapturedPiece().getTypeValue()));
 							}
-							else if (!safePiecesBefore.contains(piece) && board.pieceIsAtSafePosition(piece)) {
+							else if (!safePiecesBefore.contains(piece)) {
 								// Se a pedra movida não estava segura antes, e agora está
 								List<Piece> ps = getListOfPiecesThatCouldCaptureThis(piece);
-								if (ps.size() > 1) {
-									/* SE havia mais de uma pedra ameaçando a pedra movida, incrementa
-									 * o score, forçando a pedra a de fato permanecer onde parou
-									 */
-									possibleMove.incScore((long)(Long.MAX_VALUE / 18 * piece.getTypeValue()));
-									possibleMove.incChoice(16);
-								}
-								else {
-									/* SE havia apenas 1 pedra ameaçando a pedra movida, e a pedra movida
-									 * poderia ter capturado ela, decrementa o score, evitando que a pedra
-									 * movida escolha essa posição de fato
-									 */
-									possibleMove.decScore((long)(Long.MAX_VALUE / 7 * ps.get(0).getTypeValue()));
-									possibleMove.incChoice(32);
-								}
+								/* SE havia mais de uma pedra ameaçando a pedra movida, incrementa
+								 * o score, forçando a pedra a de fato permanecer onde parou
+								 */
+								if (ps.size() > 1)
+									possibleMove.incScore(16, (long)(Long.MAX_VALUE / 18 * piece.getTypeValue()));
+								/* SE havia apenas 1 pedra ameaçando a pedra movida, e a pedra movida
+								 * poderia ter capturado ela, decrementa o score, evitando que a pedra
+								 * movida escolha essa posição de fato
+								 */
+								else
+									possibleMove.decScore(32, (long)(Long.MAX_VALUE / 7 * ps.get(0).getTypeValue()));
 							}
-							if (board.checkMate()) { // Se a pedra movida resultou em um checkmate
-								possibleMove.incScore(Long.MAX_VALUE);
-								possibleMove.incChoice(64);
-							}
-							if (board.pieceWasCaptured() && board.pieceIsAtSafePosition(piece)) { 
-								// Se a pedra movida capturou uma pedra adversária em segurança
-								possibleMove.incScore((long)(Long.MAX_VALUE / 6 * board.getLastCapturedPiece().getTypeValue()));
-								possibleMove.incChoice(128);
-							}
-							if (board.isChecked()) {
-								// Se a pedra movida resultou em um check (Seguro ou não)
-								possibleMove.incScore(board.pieceIsAtSafePosition(piece) ? Long.MAX_VALUE / 2 : (-Long.MAX_VALUE / 2));
-								possibleMove.incChoice(board.pieceIsAtSafePosition(piece) ? 256 : 512);
-							}
+							// Se a pedra movida resultou em um checkmate
+							if (board.checkMate())
+								possibleMove.incScore(64, Long.MAX_VALUE);
+							// Se a pedra movida capturou uma pedra adversária em segurança
+							if (board.pieceWasCaptured() && board.pieceIsAtSafePosition(piece))
+								possibleMove.incScore(128, (long)(Long.MAX_VALUE / 6 * board.getLastCapturedPiece().getTypeValue()));
+							// Se a pedra movida resultou em um check (Seguro ou não)
+							if (board.isChecked())
+								possibleMove.incScore(board.pieceIsAtSafePosition(piece) ? 256 : 512, 
+										board.pieceIsAtSafePosition(piece) ? Long.MAX_VALUE / 2 : (-Long.MAX_VALUE / 2));
+							// Se a pedra movida for um peão que andou 2 tiles pelas colunas no meio e está seguro
 							if (piece.isSameTypeOf(PieceType.PAWN) && board.pieceIsAtSafePosition(piece) &&
 									Math.abs(positionBefore.getRow() - position.getRow()) > 1 &&
-									(piece.getColumn() == 3 || piece.getColumn() == 4)) {
-										// Se a pedra movida for um peão que andou 2 tiles pelas colunas no meio e está seguro
-										possibleMove.incScore(Long.MAX_VALUE / 150);
-										possibleMove.incChoice(1024);
-							}
+									(piece.getColumn() == 3 || piece.getColumn() == 4))
+										possibleMove.incScore(1024, Long.MAX_VALUE / 150);
 							// Gera score negativo baseado em pedras aliadas que estão sob risco de captura
 							friendlyInsightScore = 0;
 							for (Piece friendlyPiece : board.getPieceListByColor(color))
@@ -206,17 +184,13 @@ public class ChessAI {
 										friendlyPiece.setColor(color.getOppositeColor());
 										board.removePiece(piece);
 										board.addPiece(positionBefore, piece);
-										if (piece.canMoveToPosition(friendlyPiece.getPosition())) {
-											possibleMove.decScore((long)(Long.MAX_VALUE / 7 * friendlyPiece.getTypeValue()));
-											possibleMove.incChoice(1048576);
-										}
+										if (piece.canMoveToPosition(friendlyPiece.getPosition()))
+											possibleMove.decScore(1048576, (long)(Long.MAX_VALUE / 7 * friendlyPiece.getTypeValue()));
 										friendlyPiece.setColor(color);
 										Board.cloneBoard(recBoard, board);
 									}
-									else {
-										possibleMove.decScore((long)(Long.MAX_VALUE / 6 * piece.getTypeValue()));
-										possibleMove.incChoice(524288);
-									}
+									else if (!board.pieceWasCaptured())
+										possibleMove.decScore(524288, (long)(Long.MAX_VALUE / 6 * piece.getTypeValue()));
 								}
 							// Gera score positivo baseado em pedras adversárias que estão sob risco de captura
 							opponentInsightScore = 0;
@@ -230,30 +204,24 @@ public class ChessAI {
 											Piece lastCaptured = board.getLastCapturedPiece();
 											// Simula a captura para ver como vai ficar a situação da pedra aliada após a captura
 											tryToMoveTo(piece, opponentPiece.getPosition());
-											if (board.pieceIsAtSafePosition(piece)) { 
-												/* Se após a captura, a pedra capturante ficou segura, incrementa
-												 * o score no valor da pedra adversária que pode ser capturada
-												 */
-												possibleMove.incScore((long)(Long.MAX_VALUE / 7 * opponentPiece.getTypeValue()));
-												possibleMove.incChoice(2048);
-											}
+											/* Se após a captura, a pedra capturante ficou segura, incrementa
+											 * o score no valor da pedra adversária que pode ser capturada
+											 */
+											if (board.pieceIsAtSafePosition(piece)) 
+												possibleMove.incScore(2048, (long)(Long.MAX_VALUE / 7 * opponentPiece.getTypeValue()));
 											else { // Se após a captura, a pedra capturante não ficar segura...
-												if (piece.strongerThan(lastCaptured)) {
-														/* Se a pedra capturada por último for de MENOR valor que a pedra capturante,
-														 * incrementa o score baseado no (VALOR DA PEDRA CAPTURADA - VALOR DA PEDRA
-														 * CAPTURANTE), evitando assim que a CPU suicide pedras capturando outras de
-														 * menor valor que a pedra capturante.
-														 */
-														possibleMove.incScore((long)(Long.MAX_VALUE / 9 * (piece.getTypeValue() - lastCaptured.getTypeValue())));
-														possibleMove.incChoice(4096);
-												}
-												else {
-													/* Se a pedra capturada por último for de MAIOR valor que a pedra, incrementa
-													 * o score baseado no (VALOR DA PEDRA CAPTURADA - VALOR DA PEDRA CAPTURANTE)
-													 */
-													possibleMove.incScore((long)(Long.MAX_VALUE / 14 * ((lastCaptured.getTypeValue() - piece.getTypeValue()) + 0.1)));
-													possibleMove.incChoice(8192);
-												}
+												/* Se a pedra capturada por último for de MENOR valor que a pedra capturante,
+												 * incrementa o score baseado no (VALOR DA PEDRA CAPTURADA - VALOR DA PEDRA
+												 * CAPTURANTE), evitando assim que a CPU suicide pedras capturando outras de
+												 * menor valor que a pedra capturante.
+												 */
+												if (piece.strongerThan(lastCaptured))
+														possibleMove.incScore(4096, (long)(Long.MAX_VALUE / 9 * (piece.getTypeValue() - lastCaptured.getTypeValue())));
+												/* Se a pedra capturada por último for de MAIOR valor que a pedra, incrementa
+												 * o score baseado no (VALOR DA PEDRA CAPTURADA - VALOR DA PEDRA CAPTURANTE)
+												 */
+												else
+													possibleMove.incScore(8192, (long)(Long.MAX_VALUE / 14 * ((lastCaptured.getTypeValue() - piece.getTypeValue()) + 0.1)));
 											}
 										}
 										catch (Exception e) {}
@@ -266,33 +234,29 @@ public class ChessAI {
 											 */
 											int disX = Math.abs(opponentPiece.getColumn() - position.getColumn()); 
 											int disY = Math.abs(opponentPiece.getRow() - position.getRow());
-											possibleMove.decScore(disX > disY ? disX : disY);
-											possibleMove.incChoice(16384);
+											possibleMove.decScore(16384, disX > disY ? disX : disY);
 										}
 										if (!board.pieceWasCaptured()) { // Se o ultimo movimento não foi uma captura...
-											if (otherKingThreatenPositions.size() > opponentPiece.getPossibleSafeMoves().size()) {
-												// Se o rei adversário ficou com menos possibilidade de movimentos agora do que antes
-												possibleMove.incScore(Long.MAX_VALUE / 12);
-												possibleMove.incChoice(32768);
-											}
-											else if (otherKingThreatenPositions.size() < opponentPiece.getPossibleSafeMoves().size()) {
-												// Se o rei adversário ficou com mais possibilidade de movimentos agora do que antes
-												possibleMove.decScore(Long.MAX_VALUE / 12);
-												possibleMove.incChoice(65536);
-											}
+											// Se o rei adversário ficou com menos possibilidade de movimentos agora do que antes
+											if (otherKingThreatenPositions.size() > opponentPiece.getPossibleSafeMoves().size())
+												possibleMove.incScore(32768, Long.MAX_VALUE / 12);
+											// Se o rei adversário ficou com mais possibilidade de movimentos agora do que antes
+											else if (otherKingThreatenPositions.size() < opponentPiece.getPossibleSafeMoves().size())
+												possibleMove.decScore(65536, Long.MAX_VALUE / 12);
 										}
 									}
 							}
-							if (friendlyInsightScore > 0) {
-								// Se há pedras aliadas sob risco de captura, decrementa o score baseado no total de pedras aliadas que estão sob risco
-								possibleMove.decScore((long)(friendlyInsightScore * Integer.MAX_VALUE * 10));
-								possibleMove.incChoice(131072);
-							}
-							if (opponentInsightScore > 0) {
-								// Se há pedras adversárias sob risco de captura, incrementa o score baseado no total de pedras adversárias que estão sob risco
-								possibleMove.incScore((long)(opponentInsightScore * Integer.MAX_VALUE));
-								possibleMove.incChoice(262144);
-							}
+							// Se há pedras aliadas sob risco de captura, decrementa o score baseado no total de pedras aliadas que estão sob risco
+							if (friendlyInsightScore > 0)
+								possibleMove.decScore(131072, (long)(friendlyInsightScore * Integer.MAX_VALUE * 10));
+							// Se há pedras adversárias sob risco de captura, incrementa o score baseado no total de pedras adversárias que estão sob risco
+							if (opponentInsightScore > 0)
+								possibleMove.incScore(262144, (long)(opponentInsightScore * Integer.MAX_VALUE));
+						}
+						if (debugging && piece.getColor() == PieceColor.WHITE && piece.isSameTypeOf(PieceType.PAWN)) {
+							System.out.println(positionBefore + " -> " + position + " " + possibleMove.getScore());
+							for (String s : possibleMove.getChoicesInfo())
+								System.out.println("* " + s);
 						}
 					}
 					catch (Exception e)
@@ -337,110 +301,80 @@ public class ChessAI {
 		validateCpuCommands();
 		if (board.pieceIsSelected())
 			throw new GameException("CPU already selected a piece. Call \".doCpuMoveSelectedPiece()\" for finish the CPU move.");
-
 		List<PossibleMove> possibleMoves;
 		Board recBoard = board.newClonedBoard();
 		Board recBoard2 = board.newClonedBoard();
-		cpuSelectedPiece = null;
 		cpuSelectedPositionToMove = null;
 		ignorePositions.clear();
 		ignorePieces.clear();
-		int tries = 0;
-		
-		while (true) {
-			try {
-				/** Se uma pedra estiver sob risco de captura, e não houver movimento que tire
-				 * isso, tentar posicionar uma pedra de forma que, após a pedra aliada ser capturada,
-				 * essa outra pedra possa capturar a pedra adversária que a capturou, isso se após a
-				 * captura ela ficar segura.
-				 */
-				PieceColor color = board.getCurrentColorTurn();
-				if (anyPieceCouldBeCaptured(color) && !board.isChecked() &&
-						testPossibleMoves(e -> !anyPieceCouldBeCaptured(color)) == null) {
-							possibleMoves = new ArrayList<>();
-							Boolean stop = false;
-							for (Piece piece : board.getFriendlyPieceList())
-								for (Piece opponentPiece : board.getPieceListByColor(color.getOppositeColor())) {
-									if (opponentPiece.couldCapture(piece)) {
-										try {
-											tryToMoveTo(opponentPiece, piece);
-											Board.cloneBoard(board, recBoard2);
-											for (Piece piece3 : board.getPieceListByColor(color)) {
-												PiecePosition originalPosition = new PiecePosition(piece3.getPosition());
-												if (piece3.couldCapture(opponentPiece) &&
-														!isIgnoredPosition(piece3, opponentPiece) &&
-														ignorePieces.contains(piece3)) {
+		PieceColor color = board.getCurrentColorTurn();
+		if (anyPieceCouldBeCaptured(color) && !board.isChecked() &&
+				testPossibleMoves(e -> !anyPieceCouldBeCaptured(color)) == null) {
+					possibleMoves = new ArrayList<>();
+					Boolean stop = false;
+					for (Piece piece : board.getFriendlyPieceList())
+						for (Piece opponentPiece : board.getPieceListByColor(color.getOppositeColor())) {
+							if (opponentPiece.couldCapture(piece)) {
+								try {
+									tryToMoveTo(opponentPiece, piece);
+									Board.cloneBoard(board, recBoard2);
+									for (Piece piece3 : board.getPieceListByColor(color)) {
+										PiecePosition originalPosition = new PiecePosition(piece3.getPosition());
+										if (piece3.couldCapture(opponentPiece) &&
+												!isIgnoredPosition(piece3, opponentPiece) &&
+												ignorePieces.contains(piece3)) {
+											try {
+												tryToMoveTo(piece3, opponentPiece);
+												if (board.pieceIsAtSafePosition(piece3) && !board.isChecked(piece3.getColor())) {
+													ignorePieces.add(piece3);
+													Board.cloneBoard(recBoard, board);
+													stop = true;
+													break;
+												}
+											}
+											catch (Exception e)
+												{ addIgnorePosition(piece, opponentPiece.getPosition()); }
+											Board.cloneBoard(recBoard2, board);
+										}
+										else
+											for (PiecePosition position : piece3.getPossibleMoves())
+												if (!isIgnoredPosition(piece3, position) && ignorePieces.contains(piece3)) {
 													try {
-														tryToMoveTo(piece3, opponentPiece);
-														if (board.pieceIsAtSafePosition(piece3) && !board.isChecked(piece3.getColor())) {
-															ignorePieces.add(piece3);
-															Board.cloneBoard(recBoard, board);
-															stop = true;
-															break;
-														}
+														tryToMoveTo(piece3, position);
+														if (piece3.couldCapture(opponentPiece) &&
+															!isIgnoredPosition(piece3, opponentPiece) &&
+															ignorePieces.contains(piece3))
+																try {
+																	tryToMoveTo(piece3, opponentPiece.getPosition());
+																	if (board.pieceIsAtSafePosition(piece3) && !board.isChecked(piece3.getColor()))
+																		possibleMoves.add(new PossibleMove(piece3, originalPosition, position));
+																}
+																catch (Exception e)
+																	{ addIgnorePosition(piece3, opponentPiece.getPosition()); }
 													}
 													catch (Exception e)
-														{ addIgnorePosition(piece, opponentPiece.getPosition()); }
+														{ addIgnorePosition(piece3, position); }
 													Board.cloneBoard(recBoard2, board);
 												}
-												else
-													for (PiecePosition position : piece3.getPossibleMoves())
-														if (!isIgnoredPosition(piece3, position) && ignorePieces.contains(piece3)) {
-															try {
-																tryToMoveTo(piece3, position);
-																if (piece3.couldCapture(opponentPiece) &&
-																	!isIgnoredPosition(piece3, opponentPiece) &&
-																	ignorePieces.contains(piece3))
-																		try {
-																			tryToMoveTo(piece3, opponentPiece.getPosition());
-																			if (board.pieceIsAtSafePosition(piece3) && !board.isChecked(piece3.getColor()))
-																				possibleMoves.add(new PossibleMove(piece3, originalPosition, position));
-																		}
-																		catch (Exception e)
-																			{ addIgnorePosition(piece3, opponentPiece.getPosition()); }
-															}
-															catch (Exception e)
-																{ addIgnorePosition(piece3, position); }
-															Board.cloneBoard(recBoard2, board);
-														}
-											}
-										}
-										catch (Exception e)
-											{ addIgnorePosition(opponentPiece, piece.getPosition()); }
-										Board.cloneBoard(recBoard, board);
 									}
-									if (stop)
-										break;
 								}
-								if (stop)
-									break;
-
-							Board.cloneBoard(recBoard, board);
-							if (!possibleMoves.isEmpty()) {
-								choiceAPossibleMoveToDo(possibleMoves, recBoard, 1);
-								return;
+								catch (Exception e)
+									{ addIgnorePosition(opponentPiece, piece.getPosition()); }
+								Board.cloneBoard(recBoard, board);
 							}
-				}
-				
-				if ((possibleMoves = testPossibleMoves()) != null) {
-					choiceAPossibleMoveToDo(possibleMoves, recBoard, 1);
-					return;
-				}
-			}
-			catch (Exception e) {
-				if (debugging)
-					System.out.println("ERROR ON ACTION " + cpuLastChoice + " = " + (cpuSelectedPiece == null ? null : cpuSelectedPiece.getPosition()) + " -> " + cpuSelectedPositionToMove + " - "+ e.getMessage());
-				/* Se na tentativa de definir a movimentação da pedra, lançar alguma
-				 * exception, repetir a verificação, porém colocando a última posição
-				 * tentada na lista de ignore.
-				 */
-				addIgnorePosition(cpuSelectedPiece, cpuSelectedPositionToMove);
-				cpuSelectedPiece = null;
-				cpuSelectedPositionToMove = null;
-				Board.cloneBoard(recBoard, board);
-			}
-			if (++tries == 500)
-				throw new GameException("Code got stucked trying to find the next move for CPU. Please, if you are able to, print the current board and send it to the developer.");
+							if (stop)
+								break;
+						}
+					Board.cloneBoard(recBoard, board);
+					if (!possibleMoves.isEmpty()) {
+						choiceAPossibleMoveToDo(possibleMoves, recBoard, 1);
+						return;
+					}
+		}
+		
+		if ((possibleMoves = testPossibleMoves()) != null) {
+			choiceAPossibleMoveToDo(possibleMoves, recBoard, 1);
+			return;
 		}
 	}	
 	
@@ -483,6 +417,7 @@ class PossibleMove implements Comparable<PossibleMove> {
 	private PiecePosition targetPosition;
 	private long score;
 	private int choice;
+	private Map<Integer, Long> scoreByChoice;
 	
 	public PossibleMove(Piece piece, PiecePosition startPosition, PiecePosition targetPosition) {
 		this.piece = piece;
@@ -490,6 +425,7 @@ class PossibleMove implements Comparable<PossibleMove> {
 		this.targetPosition = new PiecePosition(targetPosition);
 		score = 0;
 		choice = 0;
+		scoreByChoice = new HashMap<>();
 	}
 
 	public PossibleMove(Piece piece, PiecePosition targetPosition)
@@ -522,7 +458,7 @@ class PossibleMove implements Comparable<PossibleMove> {
 		};
 		for (int n = 1, i = 0; i < s.length && n <= choice; n += n, i++)
 			if ((n & choice) > 0)
-				infos.add(n + " - " + s[i] + " (" + score + ")");
+				infos.add(n + " - " + s[i] + " (" + (scoreByChoice.containsKey(n) ? scoreByChoice.get(n) : "???") + ")");
 		if (infos.isEmpty())
 			infos.add("Nenhuma lógica retornada");
 		return infos;
@@ -550,7 +486,16 @@ class PossibleMove implements Comparable<PossibleMove> {
 		else if (val > 0 && score < l)
 			score = Long.MIN_VALUE;
 	}
+	
+	public void incScore(int choice, long val) {
+		incChoice(choice);
+		incScore(val);
+		scoreByChoice.put(choice, val);
+	}
 
+	public void decScore(int choice, long val)
+		{ incScore(choice, -val); }
+	
 	public Piece getPiece()
 		{ return piece; }
 	
