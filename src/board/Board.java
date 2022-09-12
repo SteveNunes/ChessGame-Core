@@ -980,10 +980,14 @@ public class Board {
 	 * Returna se é possível executar o método {@code movePieceTo()} com sucesso
 	 */
 	public Boolean checkIfCanMovePieceTo(PiecePosition targetPos) {
+		Board recBoard = newClonedBoard();
 		try
 			{ movePieceTo(targetPos); }
-		catch (Exception e)
-			{ return false; }
+		catch (Exception e) {
+			cloneBoard(recBoard, this);
+			return false;
+		}
+		cloneBoard(recBoard, this);
 		return true;
 	}
 	
