@@ -38,7 +38,6 @@ public class Board {
 	private Map<Piece, Integer> movedTurns;
 	private Boolean lastMoveWasEnPassant;
 	private Boolean lastMoveWasCastling;
-	private Boolean swappedSides;
 	private Boolean boardWasValidated;
 	private Boolean drawGame;
 	private int turns;
@@ -71,7 +70,6 @@ public class Board {
 		movedTurns = new HashMap<>();
 		playMode = ChessPlayMode.PLAYER_VS_PLAYER;
 		cpuColor = PieceColor.BLACK;
-		swappedSides = false;
 		reset(); 
 	}
 	
@@ -98,22 +96,15 @@ public class Board {
 		resetBoard(board);
 	}
 
-	public Boolean isSwappedSides()
-		{ return swappedSides; }
-	
-	public void setSwapSides(Boolean b) {
-		boardWasValidated();
-		if (swappedSides != b) {
-			Piece[][] tempBoard = new Piece[8][8];
-			for (int n = 0; n < 2; n++)
-				for (int x = 0; x < board.length; x++)
-					for (int y = 0; y < board[x].length; y++)
-						if (n == 0)
-							tempBoard[x][y] = board[x][7 - y];
-						else
-							board[x][y] = tempBoard[x][y];
-		}
-		swappedSides = b;
+	public void swapSides() {
+		Piece[][] tempBoard = new Piece[8][8];
+		for (int n = 0; n < 2; n++)
+			for (int x = 0; x < board.length; x++)
+				for (int y = 0; y < board[x].length; y++)
+					if (n == 0)
+						tempBoard[x][y] = board[x][7 - y];
+					else
+						board[x][y] = tempBoard[x][y];
 	}
 
 	/**
