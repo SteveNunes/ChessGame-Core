@@ -6,77 +6,39 @@ import java.util.List;
 import board.Board;
 import enums.PieceColor;
 import enums.PieceType;
+import gameutil.Position;
 
 public abstract class Piece implements Comparable<Piece> {
 	
+	private Position position;
 	private PieceType type;
 	private Board board;
 	private PieceColor color;
-	private PiecePosition position;
 	private int movedTurns;
 	
-	public Piece(Board board, PiecePosition position, PieceType type, PieceColor color) {
+	public Piece(Board board, Position position, PieceType type, PieceColor color) {
 		this.board = board;
-		setPosition(position);
+		this.position = new Position(position);
 		movedTurns = 0;
 		setType(type);
 		setColor(color);
 	}
-
+	
 	public void copyPiece(Piece piece) {
 		type = piece.type;
 		color = piece.color;
-		position.setValues(piece.position);
+		this.position = new Position(piece.position);
 		movedTurns = piece.movedTurns;
 	}
+
+	public Position getPosition()
+		{ return position; }
 
 	/**
 	 * Retorna o board associado a pedra
 	 */
 	public Board getBoard()
 		{ return board; }
-
-	/**
-	 * Retorna a linha do tabuleiro onde a pedra atual está
-	 */
-	public int getRow()
-		{ return position.getRow(); }
-	
-	/**
-	 * Incrementa a linha da pedra
-	 */
-	public void incRow(int value)
-		{ position.incRow(value); }
-
-	/**
-	 * Retorna a coluna do tabuleiro onde a pedra atual está
-	 */
-	public int getColumn()
-		{ return position.getColumn(); }
-
-	/**
-	 * Incrementa a coluna da pedra
-	 */
-	public void incColumn(int value)
-		{ position.incColumn(value); }
-
-	/**
-	 * Retorna a posição do tabuleiro onde a pedra atual está
-	 */
-	public PiecePosition getPosition()
-		{ return position; }
-	
-	/**
-	 * Define a posição do tabuleiro onde a pedra atual está
-	 */
-	public void setPosition(PiecePosition position)
-		{ this.position = position == null ? null : new PiecePosition(position); }
-	
-	/**
-	 * Define a linha e coluna do tabuleiro onde a pedra atual está
-	 */
-	public void setPosition(int row, int column)
-		{ this.position.setValues(row, column); }
 
 	/**
 	 * Retorna a cor da pedra atual
@@ -88,7 +50,7 @@ public abstract class Piece implements Comparable<Piece> {
 	 * Define a cor das pedras adversárias
 	 */
 	public PieceColor getOpponentColor()
-		{ return color == PieceColor.BLACK ? PieceColor.WHITE : PieceColor.BLACK; }
+		{ return color.getOppositeColor(); }
 	
 	/**
 	 * Define a cor da pedra atual
@@ -151,22 +113,22 @@ public abstract class Piece implements Comparable<Piece> {
 		{ return getPossibleMoves().isEmpty(); }
 	
 	/**
-	 * Verifica se a pedra pode se mover para a posição informada
-	 */
-	public Boolean canMoveToPosition(PiecePosition position) 
-		{ return getPossibleMoves().contains(position); }
-	
-	/**
 	 * Verifica se a pedra informada tem a mesma cor da pedra atual
 	 */
 	public Boolean isSameColorOf(Piece targetPiece)
 		{ return targetPiece != null && getColor() == targetPiece.getColor(); }
 	
 	/**
-	 * Verifica se a cor da pedra atual é o mesmo da cor informada
+	 * Verifica se a pedra atual é da cor preta
 	 */
-	public Boolean isSameColorOf(PieceColor color)
-		{ return getColor() == color; }
+	public Boolean isBlack()
+		{ return getColor() == PieceColor.BLACK; }
+
+	/**
+	 * Verifica se a pedra atual é da cor branca
+	 */
+	public Boolean isWhite()
+		{ return getColor() == PieceColor.WHITE; }
 
 	/**
 	 * Verifica se a pedra informada tem o mesmo tipo da pedra atual
@@ -175,27 +137,177 @@ public abstract class Piece implements Comparable<Piece> {
 		{ return targetPiece != null && getType() == targetPiece.getType(); }
 
 	/**
-	 * Verifica se o tipo da pedra atual é o mesmo do tipo informado
+	 * Verifica se a pedra atual é um peão da cor especificada
+	 */
+	public Boolean isPawn(PieceColor color)
+		{ return getType() == PieceType.PAWN; }
+	
+	/**
+	 * Verifica se a pedra atual é um peão, independente da cor
+	 */
+	public Boolean isPawn()
+		{ return isPawn(null); }
+	
+	/**
+	 * Verifica se a pedra atual é um peão branco
+	 */
+	public Boolean isWhitePawn()
+		{ return isPawn(PieceColor.WHITE); }
+
+	/**
+	 * Verifica se a pedra atual é um peão preto
+	 */
+	public Boolean isBlackPawn()
+		{ return isPawn(PieceColor.BLACK); }
+
+	/**
+	 * Verifica se a pedra atual é um rei da cor especificada
+	 */
+	public Boolean isKing(PieceColor color)
+		{ return getType() == PieceType.KING; }
+	
+	/**
+	 * Verifica se a pedra atual é um rei, independente da cor
+	 */
+	public Boolean isKing()
+		{ return isKing(null); }
+	
+	/**
+	 * Verifica se a pedra atual é um rei branco
+	 */
+	public Boolean isWhiteKing()
+		{ return isKing(PieceColor.WHITE); }
+
+	/**
+	 * Verifica se a pedra atual é um rei preto
+	 */
+	public Boolean isBlackKing()
+		{ return isKing(PieceColor.BLACK); }
+
+	/**
+	 * Verifica se a pedra atual é um rainha da cor especificada
+	 */
+	public Boolean isQueen(PieceColor color)
+		{ return getType() == PieceType.QUEEN; }
+	
+	/**
+	 * Verifica se a pedra atual é um rainha, independente da cor
+	 */
+	public Boolean isQueen()
+		{ return isQueen(null); }
+	
+	/**
+	 * Verifica se a pedra atual é um rainha branco
+	 */
+	public Boolean isWhiteQueen()
+		{ return isQueen(PieceColor.WHITE); }
+
+	/**
+	 * Verifica se a pedra atual é um rainha preto
+	 */
+	public Boolean isBlackQueen()
+		{ return isQueen(PieceColor.BLACK); }
+	
+	/**
+	 * Verifica se a pedra atual é um cavalo da cor especificada
+	 */
+	public Boolean isKnight(PieceColor color)
+		{ return getType() == PieceType.KNIGHT; }
+	
+	/**
+	 * Verifica se a pedra atual é um cavalo, independente da cor
+	 */
+	public Boolean isKnight()
+		{ return isKnight(null); }
+	
+	/**
+	 * Verifica se a pedra atual é um cavalo branco
+	 */
+	public Boolean isWhiteKnight()
+		{ return isKnight(PieceColor.WHITE); }
+
+	/**
+	 * Verifica se a pedra atual é um cavalo preto
+	 */
+	public Boolean isBlackKnight()
+		{ return isKnight(PieceColor.BLACK); }
+
+	/**
+	 * Verifica se a pedra atual é um bispo da cor especificada
+	 */
+	public Boolean isBishop(PieceColor color)
+		{ return getType() == PieceType.BISHOP; }
+	
+	/**
+	 * Verifica se a pedra atual é um bispo, independente da cor
+	 */
+	public Boolean isBishop()
+		{ return isBishop(null); }
+	
+	/**
+	 * Verifica se a pedra atual é um bispo branco
+	 */
+	public Boolean isWhiteBishop()
+		{ return isBishop(PieceColor.WHITE); }
+
+	/**
+	 * Verifica se a pedra atual é um bispo preto
+	 */
+	public Boolean isBlackBishop()
+		{ return isBishop(PieceColor.BLACK); }
+	
+	/**
+	 * Verifica se a pedra atual é um torre da cor especificada
+	 */
+	public Boolean isRook(PieceColor color)
+		{ return getType() == PieceType.ROOK; }
+	
+	/**
+	 * Verifica se a pedra atual é um torre, independente da cor
+	 */
+	public Boolean isRook()
+		{ return isRook(null); }
+	
+	/**
+	 * Verifica se a pedra atual é um torre branco
+	 */
+	public Boolean isWhiteRook()
+		{ return isRook(PieceColor.WHITE); }
+
+	/**
+	 * Verifica se a pedra atual é um torre preto
+	 */
+	public Boolean isBlackRook()
+		{ return isRook(PieceColor.BLACK); }
+
+	/**
+	 * Verifica se a pedra é do tipo informado
 	 */
 	public Boolean isSameTypeOf(PieceType type)
 		{ return getType() == type; }
 	
 	/**
-	 * Verifica se a pedra informada tem o mesmo tipo e cor do tipo e cor informados
+	 * Verifica se a pedra é da cor informada
 	 */
-	public Boolean isSameTypeAndColorOf(PieceType type, PieceColor color)
-		{ return isSameTypeOf(type) && isSameColorOf(color); }
-
+	public Boolean isSameColorOf(PieceColor color)
+		{ return getColor() == color; }
+	
+	/**
+	 * Verifica se a pedra informada tem o mesmo tipo e cor informados
+	 */
+	public Boolean is(PieceType type, PieceColor color)
+		{ return getType() == type && getColor() == color; }
+	
 	/**
 	 * Verifica se a pedra informada tem o mesmo tipo e cor da pedra atual
 	 */
 	public Boolean isTwin(Piece piece)
-		{ return isSameColorOf(piece) && isSameTypeOf(piece); }
+		{ return piece.getType() == getType() && piece.getColor() == getColor(); }
 	
 	/**
 	 * Verifica se a pedra está na posição informada
 	 */
-	public Boolean isAt(PiecePosition position)
+	public Boolean isSamePosition(Position position)
 		{ return getPosition().equals(position); }
 	
 	/**
@@ -215,7 +327,7 @@ public abstract class Piece implements Comparable<Piece> {
 	 */
 	public Boolean couldCapture(Piece targetPiece) {
 		return targetPiece != null && !isSameColorOf(targetPiece) &&
-				getPossibleMoves().contains(targetPiece.getPosition());
+			getPossibleCaptureMoves().contains(targetPiece.getPosition());
 	}
 
 	/**
@@ -223,13 +335,47 @@ public abstract class Piece implements Comparable<Piece> {
 	 */
 	public Boolean couldBeCapturedBy(Piece targetPiece) {
 		return targetPiece != null && !isSameColorOf(targetPiece) &&
-			targetPiece.getPossibleMoves().contains(getPosition());
+			targetPiece.getPossibleCaptureMoves().contains(getPosition());
 	}
 	
-	public List<PiecePosition> getPossibleSafeMoves() {
-		List<PiecePosition> list = new ArrayList<>();
-		for (PiecePosition position : getPossibleMoves())
-			if (getBoard().pieceCanGoToASafePosition(this, position))
+	public Boolean havePossibleSafeMoves()
+		{ return !getPossibleSafeMoves().isEmpty(); }
+
+	/**
+	 * Verifica se a pedra pode se mover para a posição informada
+	 */
+	public Boolean canMoveToPosition(Position position)
+		{ return getPossibleMoves().contains(position) || getPossibleCaptureMoves().contains(position); }
+	
+	/**
+	 * Verifica se a pedra pode se mover para a posição informada sem risco de ser capturada
+	 */
+	public Boolean canSafeMoveToPosition(Position position) {
+		if (!getBoard().isValidBoardPosition(position))
+			return false;
+		Board recBoard = getBoard().newClonedBoard();
+		Boolean isSafe = false;
+		try {
+			getBoard().removePiece(this);
+			Piece piece = getBoard().getPieceAt(position);
+			if (piece == null || !piece.isSameColorOf(this)) {
+				if (piece != null)
+					getBoard().removePiece(piece);
+				getBoard().addPiece(position, this);
+				isSafe = getBoard().pieceIsAtSafePosition(this);
+			}
+		}
+		catch (Exception e) {}
+		Board.cloneBoard(recBoard, board);
+		return isSafe;
+	}
+
+	public List<Position> getPossibleSafeMoves() {
+		List<Position> list = new ArrayList<>();
+		List<Position> possibleMoves = new ArrayList<>(getPossibleMoves());
+		possibleMoves.addAll(getPossibleCaptureMoves());
+		for (Position position : possibleMoves)
+			if (canSafeMoveToPosition(position))
 				list.add(position);
 		return list;
 	}
@@ -240,7 +386,12 @@ public abstract class Piece implements Comparable<Piece> {
 	/**
 	 * Retorna a lista de posições onde a pedra pode ser movida
 	 */
-	public abstract List<PiecePosition> getPossibleMoves();
+	public abstract List<Position> getPossibleMoves();
+
+	/**
+	 * Retorna a lista de posições onde a pedra pode capturar (Só muda no peão, as outras pedras devem retornar getPossibleMoves()
+	 */
+	public abstract List<Position> getPossibleCaptureMoves();
 
 	/**
 	 * Retorna a letra correspondente ao tipo da pedra

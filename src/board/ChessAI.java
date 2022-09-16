@@ -13,16 +13,17 @@ import enums.PieceType;
 import exceptions.GameException;
 import exceptions.PieceMoveException;
 import exceptions.PieceSelectionException;
+import gameutil.Position;
 import piece.Piece;
-import piece.PiecePosition;
+import util.Misc;
 
 public class ChessAI {
 
 	private Boolean debugging = false;
 	private Board board = null;
 	private int cpuLastChoice;
-	private PiecePosition cpuSelectedPositionToMove;
-	private Map<Piece, List<PiecePosition>> ignorePositions;
+	private Position cpuSelectedPositionToMove;
+	private Map<Piece, List<Position>> ignorePositions;
 	private List<Piece> ignorePieces;
  	
 	/**
@@ -43,7 +44,7 @@ public class ChessAI {
 		ignorePieces = new ArrayList<>();
 	}
 	
-	public PiecePosition cpuSelectedTargetPosition()
+	public Position cpuSelectedTargetPosition()
 		{ return board.pieceIsSelected() ? cpuSelectedPositionToMove : null; }
 	
 	private void validateCpuCommands() {
@@ -57,10 +58,13 @@ public class ChessAI {
 	}
 	
 	private void choiceAPossibleMoveToDo(List<PossibleMove> possibleMoves, Board recBoard, int cpuChoice) {
-		if (possibleMoves == null || possibleMoves.isEmpty())
+		if (possibleMoves.isEmpty())
 			return;
 		// Ordena os possible moves pelo score de pecas e score de ameaças, para usar a movimentacao melhor pontuada
 		possibleMoves.sort((p1, p2) -> p1.compareTo(p2));
+		List<PossibleMove> possibleMoves2 = null;
+		if (debugging)
+			possibleMoves2 = new ArrayList<>(possibleMoves);
 		for (int n = 1; n < possibleMoves.size(); n++)
 			if (possibleMoves.get(n).getScore() != possibleMoves.get(0).getScore())
 				possibleMoves.remove(n--);
@@ -69,23 +73,32 @@ public class ChessAI {
 		cpuSelectedPositionToMove = possibleMoves.get(pos).getTargetPosition();
 		board.cpuSelectedPiece(possibleMoves.get(pos).getPiece());
 		if (debugging) {
-			System.out.println("ACTION " + cpuLastChoice + " = " + possibleMoves.get(pos).getStartPosition() + " -> " + possibleMoves.get(pos).getTargetPosition() + " (Score: " + possibleMoves.get(pos).getScore() + ")");
+			for (PossibleMove pm : possibleMoves2)
+				if (Misc.alwaysTrue() ||  pm.getPiece().isQueen()) {
+					if (pm == possibleMoves.get(pos))
+						System.out.println("** CURRENTLY CHOOSEN **");
+					for (String s : pm.getChoicesInfo())
+						System.out.println("* " + s);
+					System.out.println(pm.getPiece().getInfo() + " -> " + pm.getTargetPosition() + " (Score: " + pm.getScore() + ")");
+					System.out.println("--------------");
+				}
+			System.out.println("ACTION " + cpuLastChoice + " = " + board.getSelectedPiece().getInfo() + " -> " + possibleMoves.get(pos).getTargetPosition() + " (Score: " + possibleMoves.get(pos).getScore() + ")");
 			for (String s : possibleMoves.get(pos).getChoicesInfo())
 				System.out.println("- " + s);
 			System.out.println();
 		}
 	}
 
-	private void tryToMoveTo(PiecePosition sourcePos, PiecePosition targetPos) {
-		cpuSelectedPositionToMove = new PiecePosition(targetPos);
-		board.movePieceTo(sourcePos, targetPos, false);
+	private void tryToMoveTo(Position sourcePos, Position targetPos) {
+		cpuSelectedPositionToMove = new Position(targetPos);
+		board.movePieceTo(sourcePos, targetPos);
 	}
 
-	private void tryToMoveTo(Piece sourcePiece, PiecePosition targetPos)
+	private void tryToMoveTo(Piece sourcePiece, Position targetPos)
 		{ tryToMoveTo(sourcePiece.getPosition(), targetPos); }
 
 	@SuppressWarnings("unused")
-	private void tryToMoveTo(PiecePosition sourcePos, Piece targetPiece)
+	private void tryToMoveTo(Position sourcePos, Piece targetPiece)
 		{ tryToMoveTo(sourcePos, targetPiece.getPosition()); }
 
 	private void tryToMoveTo(Piece sourcePiece, Piece targetPiece)
@@ -110,27 +123,41 @@ public class ChessAI {
 				p -> board.pieceIsAtSafePosition(p));
 		Piece opponentKing = board.getPieceListByColor(color.getOppositeColor(),
 				p -> p.isSameTypeOf(PieceType.KING)).get(0);
-		List<PiecePosition> otherKingThreatenPositions = new ArrayList<>(opponentKing.getPossibleSafeMoves());
+		List<Position> otherKingThreatenPositions = new ArrayList<>(opponentKing.getPossibleSafeMoves());
 		float opponentInsightScore = 0;
 		float friendlyInsightScore = 0;
+		int repeatedMovesBefore = board.getTotalRepeatedMoves();
 		for (Piece piece : pieces) {
 			ignorePositions.clear();
-			List<PiecePosition> positions = new ArrayList<>(piece.getPossibleMoves());
-			for (PiecePosition position : positions)
+			List<Position> positions = new ArrayList<>(piece.getPossibleMoves());
+			for (Position position : positions)
 				if (!isIgnoredPosition(piece, position)) {
-					try {
-						PiecePosition positionBefore = new PiecePosition(piece.getPosition());
+					try { // Ultimo valor usado: 134217728
+						List<Piece> piecesThatCanCaptureTheMovedPiece = getListOfPiecesThatCouldCaptureThis(piece);
+						Position positionBefore = new Position(piece.getPosition());
 						tryToMoveTo(piece, position);
 						PossibleMove possibleMove = new PossibleMove(piece, positionBefore, position);
 						possibleMoves.add(possibleMove);
+						if (board.getTotalRepeatedMoves() > repeatedMovesBefore )
+							possibleMove.decScore(1);
 						if (new SecureRandom().nextInt(2) == 0)
 							possibleMove.incScore((long)piece.getIntTypeValue());
 						if (predicate.test(possibleMove)) {
 							Board b = board.newClonedBoard();
-							if (board.drawGame()) // Se a pedra movida resultou em um empate
-								possibleMove.incScore(1, -Long.MAX_VALUE);
-							if (!board.pieceIsAtSafePosition(piece)) {
-								// Se a pedra movida estava segura antes, e agora não está mais
+							if (board.drawGame()) {
+								// Se a pedra movida resultou em um empate
+								if (board.isDrawByBareKings())
+									possibleMove.incScore(2097152, -Long.MAX_VALUE);
+								else if (board.isDrawByFiftyMoveRule())
+									possibleMove.incScore(4194304, -Long.MAX_VALUE);
+								else if (board.isDrawByInsufficientMatingMaterial())
+									possibleMove.incScore(8388608, -Long.MAX_VALUE);
+								else if (board.isDrawByStalemate())
+									possibleMove.incScore(16777216, -Long.MAX_VALUE);
+								else if (board.isDrawByThreefoldRepetition())
+									possibleMove.incScore(33554432, -Long.MAX_VALUE);
+							}
+							if (!board.pieceIsAtSafePosition(piece)) { // Se a pedra movida está sob risco de captura...
 								// Ela não realizou captura no último turno (Ficou em risco por nada)
 								if (!board.pieceWasCaptured())
 									possibleMove.decScore(2, (long)(Long.MAX_VALUE / 6 * piece.getTypeValue()));
@@ -141,23 +168,48 @@ public class ChessAI {
 									possibleMove.incScore(8, (long)(Long.MAX_VALUE / 9 * board.getLastCapturedPiece().getTypeValue()));
 							}
 							else if (!safePiecesBefore.contains(piece)) {
-								// Se a pedra movida não estava segura antes, e agora está
-								List<Piece> ps = getListOfPiecesThatCouldCaptureThis(piece);
+								// Se a pedra movida não estava segura antes, e agora está...
+								
 								/* SE havia mais de uma pedra ameaçando a pedra movida, incrementa
 								 * o score, forçando a pedra a de fato permanecer onde parou
 								 */
-								if (ps.size() > 1)
+								if (piecesThatCanCaptureTheMovedPiece.size() > 1)
 									possibleMove.incScore(16, (long)(Long.MAX_VALUE / 18 * piece.getTypeValue()));
-								/* SE havia apenas 1 pedra ameaçando a pedra movida, e a pedra movida
-								 * poderia ter capturado ela, decrementa o score, evitando que a pedra
-								 * movida escolha essa posição de fato
-								 */
-								else
-									possibleMove.decScore(32, (long)(Long.MAX_VALUE / 7 * ps.get(0).getTypeValue()));
+								else {
+									Board.cloneBoard(recBoard, board);
+									Piece opponentPiece = piecesThatCanCaptureTheMovedPiece.get(0);
+									if (piece.couldCapture(opponentPiece)) {
+										/* SE havia apenas 1 pedra ameaçando a pedra movida, e a pedra movida poderia
+										 * ter capturado ela, testa a captura para ver se após a captura ela ficaria
+										 * segura ou não
+										 */
+										tryToMoveTo(piece, opponentPiece.getPosition());
+										/**
+										 * Se ela de fato poderia ter capturado em segurança, a pedra que a ameaçava,
+										 * e não o fez, decrementa o score, para evitar que ela faça isso
+										 */
+										if (board.pieceIsAtSafePosition(piece))
+												possibleMove.decScore(32, (long)(Long.MAX_VALUE / 7 * piecesThatCanCaptureTheMovedPiece.get(0).getTypeValue()));
+										/**
+										 * Se ela de fato poderia ter capturado em segurança, a pedra que a ameaçava,
+										 * mas poderia ser capturada logo em seguida, e a troca não valeria a pena,
+										 * incrementa o score, para evitar que ela faça isso
+										 */
+										else if (piece.strongerThan(opponentPiece))
+											possibleMove.incScore(67108864, (long)(Long.MAX_VALUE / 9 * board.getLastCapturedPiece().getTypeValue()));
+										/**
+										 * Se ela seria capturada após a captura, mas isso seria por uma troca
+										 * justa, decrementa levemente o score
+										 */
+										else
+											possibleMove.decScore(134217728, (long)(Long.MAX_VALUE / 6 * (piece.getTypeValue() - board.getLastCapturedPiece().getTypeValue())));
+									}
+									Board.cloneBoard(b, board);
+								}
 							}
 							// Se a pedra movida resultou em um checkmate
-							if (board.checkMate())
-								possibleMove.incScore(64, Long.MAX_VALUE);
+							if (board.checkMate() || board.deadlyKissMate())
+								possibleMove.incScore(board.deadlyKissMate() ? 1 : 64, Long.MAX_VALUE);
 							// Se a pedra movida capturou uma pedra adversária em segurança
 							if (board.pieceWasCaptured() && board.pieceIsAtSafePosition(piece))
 								possibleMove.incScore(128, (long)(Long.MAX_VALUE / 6 * board.getLastCapturedPiece().getTypeValue()));
@@ -167,8 +219,8 @@ public class ChessAI {
 										board.pieceIsAtSafePosition(piece) ? Long.MAX_VALUE / 2 : (-Long.MAX_VALUE / 2));
 							// Se a pedra movida for um peão que andou 2 tiles pelas colunas no meio e está seguro
 							if (piece.isSameTypeOf(PieceType.PAWN) && board.pieceIsAtSafePosition(piece) &&
-									Math.abs(positionBefore.getRow() - position.getRow()) > 1 &&
-									(piece.getColumn() == 3 || piece.getColumn() == 4))
+									Math.abs(positionBefore.getY() - position.getY()) > 1 &&
+									(piece.getPosition().getX() == 3 || piece.getPosition().getX() == 4))
 										possibleMove.incScore(1024, Long.MAX_VALUE / 150);
 							// Gera score negativo baseado em pedras aliadas que estão sob risco de captura
 							friendlyInsightScore = 0;
@@ -232,11 +284,11 @@ public class ChessAI {
 											/* Incrementa o score baseado na distância da pedra atual para a pedra do rei,
 											 * desde que essa posição nao coloque a pedra em perigo (apenas não-peôes)
 											 */
-											int disX = Math.abs(opponentPiece.getColumn() - position.getColumn()); 
-											int disY = Math.abs(opponentPiece.getRow() - position.getRow());
+											int disX = Math.abs(opponentPiece.getPosition().getX() - position.getX()); 
+											int disY = Math.abs(opponentPiece.getPosition().getY() - position.getY());
 											possibleMove.decScore(16384, disX > disY ? disX : disY);
 										}
-										if (!board.pieceWasCaptured()) { // Se o ultimo movimento não foi uma captura...
+										if (!board.pieceWasCaptured() && !otherKingThreatenPositions.isEmpty()) { // Se o ultimo movimento não foi uma captura...
 											// Se o rei adversário ficou com menos possibilidade de movimentos agora do que antes
 											if (otherKingThreatenPositions.size() > opponentPiece.getPossibleSafeMoves().size())
 												possibleMove.incScore(32768, Long.MAX_VALUE / 12);
@@ -252,11 +304,6 @@ public class ChessAI {
 							// Se há pedras adversárias sob risco de captura, incrementa o score baseado no total de pedras adversárias que estão sob risco
 							if (opponentInsightScore > 0)
 								possibleMove.incScore(262144, (long)(opponentInsightScore * Integer.MAX_VALUE));
-						}
-						if (debugging && piece.getColor() == PieceColor.WHITE && piece.isSameTypeOf(PieceType.PAWN)) {
-							System.out.println(positionBefore + " -> " + position + " " + possibleMove.getScore());
-							for (String s : possibleMove.getChoicesInfo())
-								System.out.println("* " + s);
 						}
 					}
 					catch (Exception e)
@@ -282,12 +329,11 @@ public class ChessAI {
 	private List<PossibleMove> testPossibleMoves()
 		{ return testPossibleMoves(board.getCurrentColorTurn(), e -> true, false); }
 
-	private List<Piece> getListOfPiecesThatCouldCaptureAPieceAt(PiecePosition position, PieceColor color) {
+	private List<Piece> getListOfPiecesThatCouldCaptureAPieceAt(Position position, PieceColor color) {
 		List<Piece> pieces = board.getPieceListByColor(color.getOppositeColor(), p -> p.canMoveToPosition(position));
 		return pieces.isEmpty() ? null : pieces;
 	}
 
-	@SuppressWarnings("unused")
 	private List<Piece> getListOfPiecesThatCouldCaptureThis(Piece piece)
 		{ return getListOfPiecesThatCouldCaptureAPieceAt(piece.getPosition(), piece.getColor()); }
 
@@ -319,7 +365,7 @@ public class ChessAI {
 									tryToMoveTo(opponentPiece, piece);
 									Board.cloneBoard(board, recBoard2);
 									for (Piece piece3 : board.getPieceListByColor(color)) {
-										PiecePosition originalPosition = new PiecePosition(piece3.getPosition());
+										Position originalPosition = new Position(piece3.getPosition());
 										if (piece3.couldCapture(opponentPiece) &&
 												!isIgnoredPosition(piece3, opponentPiece) &&
 												ignorePieces.contains(piece3)) {
@@ -337,7 +383,7 @@ public class ChessAI {
 											Board.cloneBoard(recBoard2, board);
 										}
 										else
-											for (PiecePosition position : piece3.getPossibleMoves())
+											for (Position position : piece3.getPossibleMoves())
 												if (!isIgnoredPosition(piece3, position) && ignorePieces.contains(piece3)) {
 													try {
 														tryToMoveTo(piece3, position);
@@ -372,19 +418,19 @@ public class ChessAI {
 					}
 		}
 		
-		if ((possibleMoves = testPossibleMoves()) != null) {
+		if (!(possibleMoves = testPossibleMoves()).isEmpty()) {
 			choiceAPossibleMoveToDo(possibleMoves, recBoard, 1);
 			return;
 		}
 	}	
 	
-	private void addIgnorePosition(Piece piece, PiecePosition position) {
+	private void addIgnorePosition(Piece piece, Position position) {
 		if (!ignorePositions.containsKey(piece))
 			ignorePositions.put(piece, new ArrayList<>());
 		ignorePositions.get(piece).add(position);
 	}
 	
-	private Boolean isIgnoredPosition(Piece piece, PiecePosition position)
+	private Boolean isIgnoredPosition(Piece piece, Position position)
 		{ return ignorePositions.containsKey(piece) && ignorePositions.get(piece).contains(position); }
 
 	private Boolean isIgnoredPosition(Piece piece, Piece piece2)
@@ -413,33 +459,33 @@ public class ChessAI {
 class PossibleMove implements Comparable<PossibleMove> {
 	
 	private Piece piece;
-	private PiecePosition startPosition;
-	private PiecePosition targetPosition;
+	private Position startPosition;
+	private Position targetPosition;
 	private long score;
 	private int choice;
 	private Map<Integer, Long> scoreByChoice;
 	
-	public PossibleMove(Piece piece, PiecePosition startPosition, PiecePosition targetPosition) {
+	public PossibleMove(Piece piece, Position startPosition, Position targetPosition) {
 		this.piece = piece;
-		this.startPosition = new PiecePosition(startPosition);
-		this.targetPosition = new PiecePosition(targetPosition);
+		this.startPosition = new Position(startPosition);
+		this.targetPosition = new Position(targetPosition);
 		score = 0;
 		choice = 0;
 		scoreByChoice = new HashMap<>();
 	}
 
-	public PossibleMove(Piece piece, PiecePosition targetPosition)
+	public PossibleMove(Piece piece, Position targetPosition)
 		{ this(piece, piece.getPosition(), targetPosition); }
 
 	public List<String> getChoicesInfo() {
 		List<String> infos = new ArrayList<>();
 		String[] s = {
-				"Pedra movida resultou em empate",
+				"Pedra movida resultou em mate do beijo fatal",
 				"Pedra movida se colocou em risco por nada",
 				"Pedra movida se colocou em risco após capturar uma pedra de menor valor",
 				"Pedra movida se colocou em risco após capturar uma pedra de valor igual ou maior",
 				"Pedra movida se livrou do risco de captura",
-				"Pedra movida se livrou do risco de captura mesmo podendo ter capturado a pedra que a ameaçava",
+				"Pedra movida se livrou do risco de captura mesmo podendo ter capturado em segurança a pedra que a ameaçava",
 				"Pedra movida resultou em checkmate",
 				"Pedra movida resultou em captura segura",
 				"Pedra movida resultou em check seguro",
@@ -454,7 +500,14 @@ class PossibleMove implements Comparable<PossibleMove> {
 				"Há pedras aliadas sob risco de captura",
 				"Há pedras adversárias sob risco de captura",
 				"A pedra movida está sob risco de captura",
-				"Pedra movida deixou de cobrir pedra aliada em risco de captura"
+				"Pedra movida deixou de cobrir pedra aliada em risco de captura",
+				"Pedra movida resultou em empate por \"Bare Kings\"",
+				"Pedra movida resultou em empate por \"Fifty-move rule\"",
+				"Pedra movida resultou em empate por \"Insufficient Mating Material\"",
+				"Pedra movida resultou em empate por \"Stalemate\"",
+				"Pedra movida resultou em empate por \"Threefold Repetition\"",
+				"Pedra movida se livrou do risco de captura, mesmo podendo capturar a pedra que a ameaçava, porque poderia ser capturada logo em seguida e a pedra capturada era de menor valor (não valeria a pena a troca)",
+				"Pedra movida se livrou do risco de captura, mesmo podendo capturar a pedra que a ameaçava, porque poderia ser capturada logo em seguida, mesmo que a pedra capturada era de valor igual ou maior (valeria a pena a troca)"
 		};
 		for (int n = 1, i = 0; i < s.length && n <= choice; n += n, i++)
 			if ((n & choice) > 0)
@@ -502,13 +555,13 @@ class PossibleMove implements Comparable<PossibleMove> {
 	public void setPiece(Piece piece)
 		{ this.piece = piece; }
 	
-	public PiecePosition getStartPosition()
+	public Position getStartPosition()
 		{ return startPosition; }
 
-	public PiecePosition getTargetPosition()
+	public Position getTargetPosition()
 		{ return targetPosition; }
 
-	public void setPosition(PiecePosition position) 
+	public void setPosition(Position position) 
 		{ this.targetPosition = position; }
 	
 	@Override

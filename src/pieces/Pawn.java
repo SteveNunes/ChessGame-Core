@@ -6,39 +6,43 @@ import java.util.List;
 import board.Board;
 import enums.PieceColor;
 import enums.PieceType;
+import gameutil.Position;
 import piece.Piece;
-import piece.PiecePosition;
 
 public class Pawn extends Piece {
 	
-	public Pawn(Board board, PiecePosition position, PieceColor color)
+	public Pawn(Board board, Position position, PieceColor color)
 		{ super(board, position, PieceType.PAWN, color); }
 	
 	@Override
-	public List<PiecePosition> getPossibleMoves()
-		{ return getPossibleMoves(false); }
-
-	private List<PiecePosition> getPossibleMoves(Boolean capturePositions) {
-		List<PiecePosition> moves = new ArrayList<>();
-		int inc = getColor() == PieceColor.BLACK ? 1 : -1;
-		PiecePosition p = new PiecePosition(getPosition());
-		PiecePosition p2 = new PiecePosition(p);
+	public List<Position> getPossibleMoves()
+		{ return getPossibleMoves(false);	 }
+	
+	@Override
+	public List<Position> getPossibleCaptureMoves()
+		{ return getPossibleMoves(true);	 }
+	
+	public List<Position> getPossibleMoves(Boolean captureMoves) {
+		List<Position> moves = new ArrayList<>();
+		Boolean swaped = getBoard().isSwappedSides();
+		int inc = (isBlack() && !swaped) || (isWhite() && swaped) ? 1 : -1;
+		Position p = new Position(getPosition());
+		Position p2 = new Position(p);
 		// Front check (1 or 2 steps further (2 if this piece was never moved before))
-		for (int row = 1; row <= (capturePositions || wasMoved() ? 1 : 2); row++) {
-			p.incRow(inc);
-			// Diagonal check for capture
-			if (!capturePositions && getBoard().isFreeSlot(p))
-				moves.add(new PiecePosition(p));
+		for (int row = 1; row <= (captureMoves || wasMoved() ? 1 : 2); row++) {
+			p.incY(inc);
+			if (!captureMoves && getBoard().isFreeSlot(p))
+				moves.add(new Position(p));
 			for (int i = -1; row == 1 && i <= 1; i += 2) {
-				p2.setValues(p);
-				p2.incColumn(i);
+				p2.setPosition(p.getX() + i, p.getY());
 				if (getBoard().isValidBoardPosition(p2)) {
 					Piece piece = getBoard().getPieceAt(p2);
+					// Diagonal check for capture
 					if (piece != null && !isSameColorOf(piece))
-						moves.add(new PiecePosition(p2));
+						moves.add(new Position(p2));
 					if (piece == null && getBoard().pieceCanDoEnPassant(this) &&
 							getBoard().getEnPassantCapturePosition().equals(p2))
-								moves.add(new PiecePosition(p2)); //Tile for En Passant special move
+								moves.add(new Position(p2)); //Tile for En Passant special move
 				}
 			}
 			if (!getBoard().isFreeSlot(p))
@@ -46,17 +50,12 @@ public class Pawn extends Piece {
 		}
 		return moves;
 	}
-	
-	@Override
-	public Boolean couldCapture(Piece targetPiece) {
-		return targetPiece != null && !isSameColorOf(targetPiece) &&
-				getPossibleMoves(true).contains(targetPiece.getPosition());
-	}
-	
+
 	@Override
 	public String toString()
 		{ return PieceType.PAWN.name(); }
 
+	@Override
 	public char let()
 		{ return PieceType.PAWN.getLet(); }
 

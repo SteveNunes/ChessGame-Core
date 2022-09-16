@@ -20,8 +20,8 @@ import exceptions.InvalidPositionException;
 import exceptions.PieceMoveException;
 import exceptions.PieceSelectionException;
 import exceptions.PromotionException;
+import gameutil.Position;
 import piece.Piece;
-import piece.PiecePosition;
 import pieces.Bishop;
 import pieces.King;
 import pieces.Knight;
@@ -38,8 +38,14 @@ public class Board {
 	private Map<Piece, Integer> movedTurns;
 	private Boolean lastMoveWasEnPassant;
 	private Boolean lastMoveWasCastling;
+	private Boolean swappedSides;
+	private Boolean boardWasValidated;
+	private Boolean drawGame;
 	private int turns;
+	private int repeatedMoves;
+	private int turnsWithoutCapturesAndPawnMove;
 	private List<Piece> capturedPieces;
+	private List<String> lastBoards;
 	private Piece[][] board;
 	private Piece selectedPiece;
 	private Piece enPassantPiece;
@@ -48,11 +54,7 @@ public class Board {
 	private Piece promotedPiece;
 	private PieceColor currentColorTurn;
 	private PieceColor cpuColor;
-	private Boolean boardWasValidated;
-	private Boolean drawGame;
 	private ChessAI chessAI;
-	private List<String> lastBoards;
-	private int repeats;
 
 	/**
 	 * Construtor padrão 
@@ -69,6 +71,7 @@ public class Board {
 		movedTurns = new HashMap<>();
 		playMode = ChessPlayMode.PLAYER_VS_PLAYER;
 		cpuColor = PieceColor.BLACK;
+		swappedSides = false;
 		reset(); 
 	}
 	
@@ -77,7 +80,8 @@ public class Board {
 	 */
 	public void reset() {
 		turns = 0;
-		repeats = 0;
+		repeatedMoves = 0;
+		turnsWithoutCapturesAndPawnMove = 0;
 		boardWasValidated = false;
 		lastMoveWasEnPassant = false;
 		lastMoveWasCastling = false;
@@ -92,6 +96,28 @@ public class Board {
 		movedTurns.clear();
 		lastBoards = new ArrayList<>();
 		resetBoard(board);
+	}
+
+	public Boolean isSwappedSides()
+		{ return swappedSides; }
+	
+	public void setSwapSides(Boolean b) {
+		boardWasValidated();
+		if (playMode != ChessPlayMode.PLAYER_VS_CPU)
+			throw new GameException("You can only change it on \"Player vs CPU\" mode");
+		if (turns > 1)
+			throw new GameException("You can't do it after running the first turn");
+		if (swappedSides != b) {
+			Piece[][] tempBoard = new Piece[8][8];
+			for (int n = 0; n < 2; n++)
+				for (int x = 0; x < board.length; x++)
+					for (int y = 0; y < board[x].length; y++)
+						if (n == 0)
+							tempBoard[x][y] = board[x][7 - y];
+						else
+							board[x][y] = tempBoard[x][y];
+		}
+		swappedSides = b;
 	}
 
 	/**
@@ -109,8 +135,6 @@ public class Board {
 		if (turns > 1)
 			throw new GameException("You can't do it after running the first turn");
 		cpuColor = color;
-		if (getCurrentColorTurn() == color && playMode == ChessPlayMode.PLAYER_VS_CPU)
-			getChessAI().doCpuSelectAPiece();
 	}
 	
 	/**
@@ -123,18 +147,19 @@ public class Board {
 	 * Define o modo de jogo
 	 */
 	public void setPlayMode(ChessPlayMode mode) {
-		if (!boardWasValidated)
-			throw new BoardException("You can't do it after validated the board. Call this metod before validating the board.");
+		if (turns > 1)
+			throw new GameException("You can't do it after running the first turn");
 		this.playMode = mode;
 	}
 
-	static void cloneBoard(Board sourceBoard, Board targetBoard) {
+	public static void cloneBoard(Board sourceBoard, Board targetBoard) {
 		validateNullVar(sourceBoard, "sourceBoard");
 		validateNullVar(targetBoard, "targetBoard");
-		for (int y = 0; y < sourceBoard.board.length; y++)
-			for (int x = 0; x < sourceBoard.board[y].length; x++)
-				if ((targetBoard.board[y][x] = sourceBoard.board[y][x]) != null)
-					targetBoard.board[y][x].setPosition(y, x);
+		for (int x = 0; x < sourceBoard.board.length; x++)
+			for (int y = 0; y < sourceBoard.board[x].length; y++)
+				if ((targetBoard.board[x][y] = sourceBoard.board[x][y]) != null)
+					targetBoard.board[x][y].getPosition().setPosition(x, y);
+		targetBoard.turnsWithoutCapturesAndPawnMove = sourceBoard.turnsWithoutCapturesAndPawnMove;
 		targetBoard.lastBoards = new ArrayList<>(sourceBoard.lastBoards);
 		targetBoard.drawGame = sourceBoard.drawGame;
 		targetBoard.lastMovedPiece = sourceBoard.lastMovedPiece;
@@ -148,7 +173,7 @@ public class Board {
 		targetBoard.currentColorTurn = sourceBoard.currentColorTurn;
 		targetBoard.capturedPieces = new ArrayList<>(sourceBoard.capturedPieces);
 		targetBoard.turns = sourceBoard.turns;
-		targetBoard.repeats = sourceBoard.repeats;
+		targetBoard.repeatedMoves = sourceBoard.repeatedMoves;
 		targetBoard.movedTurns.clear();
 		for (Piece piece : sourceBoard.movedTurns.keySet()) {
 			piece.setMovedTurns(sourceBoard.movedTurns.get(piece));
@@ -156,11 +181,14 @@ public class Board {
 		}
 	}
 
-	Board newClonedBoard() {
+	public Board newClonedBoard() {
 		Board board = new Board();
 		cloneBoard(this, board);
 		return board;
 	}
+	
+	public int getTotalRepeatedMoves()
+		{ return repeatedMoves; }
 	
 	/**
 	 * Retorna a instância atual da classe responsável por cuidar das jogadas da CPU
@@ -202,15 +230,15 @@ public class Board {
 	 * Verifica se é possivel usar o método {@code undoMove()}
 	 */
 	public Boolean canUndoMove()
-		{ return playMode == ChessPlayMode.PLAYER_VS_PLAYER && undoIndex > 0; }
+		{ return undoIndex > 0; }
 	
 	/**
 	 * Verifica se é possivel usar o método {@code redoMove()}
 	 */
 	public Boolean canRedoMove()
-		{ return playMode == ChessPlayMode.PLAYER_VS_PLAYER && undoIndex + 1 < undoBoards.size(); }
+		{ return undoIndex + 1 < undoBoards.size(); }
 
-	private void saveBoardForUndo() {
+	void saveBoardForUndo() {
 		Board saveBoard = newClonedBoard();
 		undoIndex = undoBoards.size();
 		undoBoards.add(undoIndex, saveBoard);
@@ -269,18 +297,6 @@ public class Board {
 		return playMode != ChessPlayMode.PLAYER_VS_PLAYER &&
 			(playMode == ChessPlayMode.CPU_VS_CPU || currentColorTurn == cpuColor); 
 	}
-	
-	private Boolean checkPieceCount(PieceType type, PieceColor color, Predicate<Integer> predicate)
-		{ return predicate.test(getPieceList(color, p -> type == null || p.getType() == type).size()); }
-
-	private Boolean checkPieceCount(PieceType type, Predicate<Integer> predicate)
-		{ return checkPieceCount(type, null, predicate); }
-
-	private Boolean checkPieceCount(PieceColor color, Predicate<Integer> predicate)
-		{ return checkPieceCount(null, color, predicate); }
-
-	private Boolean checkPieceCount(Predicate<Integer> predicate)
-		{ return checkPieceCount(null, null, predicate); }
 
 	/**
 	 * Verifica se há alguma coisa errada com a formação atual das pedras.
@@ -289,11 +305,12 @@ public class Board {
 	public void validateBoard() {
 		if (chessAI == null)
 			chessAI = new ChessAI(this);
-		if (checkPieceCount(PieceType.KING, e -> e < 2))
+		if (getTheKing(PieceColor.BLACK) == null || getTheKing(PieceColor.WHITE) == null)
 			throw new BoardException("You must add one King of each color on the board");
-		if (checkPieceCount(PieceColor.WHITE, e -> e < 2) || checkPieceCount(PieceColor.BLACK, e -> e < 2))
-			throw new BoardException("You must add at least 2 pieces of each color on the board");
-		if (checkPieceCount(e -> e == 64))
+		if (getPieceListByColor(PieceColor.BLACK).size() < 2 ||
+				getPieceListByColor(PieceColor.WHITE).size() < 2)
+					throw new BoardException("You must add at least 2 pieces of each color on the board");
+		if (getPieceList().size() == 64)
 			throw new BoardException("The board must have at lest one free slot");
 		boardWasValidated = true;
 		if (allPiecesAreStucked(PieceColor.WHITE)) {
@@ -309,8 +326,7 @@ public class Board {
 		boardWasValidated = true;
 		undoBoards.clear();
 		undoIndex = -1;
-		if (playMode == ChessPlayMode.PLAYER_VS_PLAYER)
-			saveBoardForUndo();
+		saveBoardForUndo();
 	}
 	
 	private void boardWasValidated() {
@@ -321,7 +337,7 @@ public class Board {
 	private Boolean allPiecesAreStucked(PieceColor color)
 		{ return getPieceList(color, p -> !p.isStucked()).isEmpty(); }
 
-	private void validatePosition(PiecePosition position, String varName) {
+	private void validatePosition(Position position, String varName) {
 		validateNullVar(position, varName);
 		if (!isValidBoardPosition(position))
 			throw new InvalidPositionException(varName + " " + position + " - Invalid board position");
@@ -365,11 +381,12 @@ public class Board {
 		validateNullVar(newType, "newType");
 		if (newType == PieceType.PAWN || newType == PieceType.KING)
 			throw new PromotionException("You can't promote a PAWN to a " + newType.name());
-		PiecePosition pos = new PiecePosition(getPromotedPawn().getPosition());
+		Position pos = new Position(getPromotedPawn().getPosition());
 		PieceColor color = getPromotedPawn().getColor();
 		removePiece(getPromotedPawn().getPosition());
 		addNewPiece(pos, newType, color);
 		promotedPiece = null;
+		checkPossibleDraw();
 		changeTurn();
 	}
 	
@@ -382,11 +399,11 @@ public class Board {
 	/**
 	 * Se a pedra informada for um peão que possa realizar o movimento "En Passant", retorna a posição onde ele pode capturar usando esse movimento
 	 */
-	public PiecePosition getEnPassantCapturePosition() {
+	public Position getEnPassantCapturePosition() {
 		if (getEnPassantPawn() == null)
 			throw new GameException("There's no \"En Passant\" pawn");
-		PiecePosition position = new PiecePosition(getEnPassantPawn().getPosition());
-		position.incRow(getEnPassantPawn().getRow() == 3 ? -1 : 1);
+		Position position = new Position(getEnPassantPawn().getPosition());
+		position.incY(getEnPassantPawn().getPosition().getY() == 3 ? -1 : 1);
 		return position;
 	}
 
@@ -394,36 +411,34 @@ public class Board {
 	 * Verifica se a pedra informada é um peão que possa realizar o movimento "En Passant" em cima do peão marcado atualmente como tal
 	 */
 	public Boolean pieceCanDoEnPassant(Piece piece) {
-		if (piece == null ||
-				piece.getType() != PieceType.PAWN || 
-				getEnPassantPawn() == null ||
-				getEnPassantPawn().getColor() == piece.getColor())
+		if (piece == null || !piece.isPawn() || getEnPassantPawn() == null ||
+				getEnPassantPawn().isSameColorOf(piece.getColor()))
 					return false;
 		for (int x = -1; x <= 1; x += 2) {
-			PiecePosition p = new PiecePosition(piece.getPosition());
-			p.incColumn(x);
-			if (getEnPassantPawn().getPosition().equals(p))
+			Position p = new Position(piece.getPosition());
+			p.incX(x);
+			if (getEnPassantPawn().isSamePosition(p))
 				return true;
 		}
 		return false;
 	}
 
-	private Rook checkCastling(PiecePosition kingPositionSource, PiecePosition kingPositionTarget) {
+	private Rook checkCastling(Position kingPositionSource, Position kingPositionTarget) {
 		validateNullVar(kingPositionSource, "kingPositionSource");
 		validateNullVar(kingPositionTarget, "kingPositionTarget");
 
 		King king;
 		Rook rook = null;
-		PiecePosition kingPosition = new PiecePosition(kingPositionSource);
-		PiecePosition rookPosition = new PiecePosition(kingPositionSource);
-		Boolean toLeft = kingPosition.getColumn() > kingPositionTarget.getColumn();
-		if (Math.abs(kingPositionSource.getColumn() - kingPositionTarget.getColumn()) != 2)
+		Position kingPosition = new Position(kingPositionSource);
+		Position rookPosition = new Position(kingPositionSource);
+		Boolean toLeft = kingPosition.getX() > kingPositionTarget.getX();
+		if (Math.abs(kingPositionSource.getX() - kingPositionTarget.getX()) != 2)
 			return null;
 
 		try {
 			king = (King) getPieceAt(kingPositionSource);
 			validateNullVar(king, "");
-			rookPosition.setColumn(toLeft ? 0 : 7);
+			rookPosition.setX(toLeft ? 0 : 7);
 			rook = (Rook) getPieceAt(rookPosition);
 
 			if (!king.isSameColorOf(rook))
@@ -439,7 +454,7 @@ public class Board {
 		try {
 			while (true) {
 				removePiece(kingPosition);
-				kingPosition.incColumn(toLeft ? -1 : 1);
+				kingPosition.incX(toLeft ? -1 : 1);
 				if (!isFreeSlot(kingPosition)) {
 					cloneBoard(recBoard, this);
 					return null;
@@ -449,7 +464,7 @@ public class Board {
 					cloneBoard(recBoard, this);
 					return null;
 				}
-				else if (kingPosition.getColumn() == (toLeft ? 1 : 6)) {
+				else if (kingPosition.getX() == (toLeft ? 1 : 6)) {
 					cloneBoard(recBoard, this);
 					return rook;
 				}
@@ -465,10 +480,10 @@ public class Board {
 	/**
 	 * Verifica se a posição informada é uma posição válida no tabuleiro
 	 */
-	public Boolean isValidBoardPosition(PiecePosition position) {
+	public Boolean isValidBoardPosition(Position position) {
 		validateNullVar(position, "position");
-		return position.getColumn() >= 0 && position.getColumn() < board[0].length &&
-			position.getRow() >= 0 && position.getRow() < board.length;
+		return position.getY() >= 0 && position.getY() < board[0].length &&
+			position.getX() >= 0 && position.getX() < board.length;
 	}
 	
 	/**
@@ -480,26 +495,9 @@ public class Board {
 	}
 	
 	/**
-	 * Verifica se a peça informada pode ir para uma posição segura
-	 */
-	public Boolean pieceCanGoToASafePosition(Piece piece, PiecePosition positionToGo) {
-		validateNullVar(piece, "piece");
-		Board recBoard = newClonedBoard();
-		Boolean isSafe = false;
-		try {
-			removePiece(piece);
-			addPiece(positionToGo, piece);
-			isSafe = pieceIsAtSafePosition(piece);
-		}
-		catch (Exception e) {}
-		cloneBoard(recBoard, this);
-		return isSafe;
-	}
-
-	/**
 	 * Verifica se a posição informada está vaga.
 	 */
-	public Boolean isFreeSlot(PiecePosition position) {
+	public Boolean isFreeSlot(Position position) {
 		validateNullVar(position, "position");
 		return isValidBoardPosition(position) && getPieceAt(position) == null;
 	}
@@ -512,7 +510,7 @@ public class Board {
 	 * do tabuleiro. Já esse método, só retornará {@code true} se
 	 * de fato houver uma pedra na posição informada.
 	 */
-	public Boolean isAPiece(PiecePosition position) {
+	public Boolean isAPiece(Position position) {
 		validateNullVar(position, "position");
 		return isValidBoardPosition(position) && getPieceAt(position) != null;
 	}
@@ -520,7 +518,7 @@ public class Board {
 	/**
 	 * Verifica se há uma pedra adversária no tile informado.
 	 */
-	public Boolean isAnOpponentPiece(PiecePosition position) {
+	public Boolean isAnOpponentPiece(Position position) {
 		validateNullVar(position, "position");
 		return isValidBoardPosition(position) && getPieceAt(position) != null &&
 			getPieceAt(position).getColor() != getCurrentColorTurn();
@@ -529,9 +527,9 @@ public class Board {
 	/**
 	 * Retorna a pedra na posição especificada do tabuleiro
 	 */
-	public Piece getPieceAt(PiecePosition position) {
+	public Piece getPieceAt(Position position) {
 		validateNullVar(position, "position");
-		return !isValidBoardPosition(position) ? null : board[position.getRow()][position.getColumn()];
+		return !isValidBoardPosition(position) ? null : board[position.getX()][position.getY()];
 	}
 	
 	/**
@@ -552,13 +550,15 @@ public class Board {
 	/**
 	 * Seleciona uma pedra na posição informada
 	 */
-	public Piece selectPiece(PiecePosition position) throws PieceSelectionException {
+	public Piece selectPiece(Position position) throws PieceSelectionException {
 		boardWasValidated();
 		validatePosition(position, "position");
 		if (isGameOver())
 			throw new PieceSelectionException("The current game was ended");
 		if (isCpuTurn())
 			throw new PieceSelectionException("It's CPU turn! Wait...");
+		if (deadlyKissMate())
+			throw new PieceSelectionException("The current game is ended (Kiss of death mate)");
 		if (checkMate())
 			throw new PieceSelectionException("The current game is ended (Checkmate)");
 		if (drawGame()) {
@@ -583,7 +583,7 @@ public class Board {
 	 * Retorna a cor da pedra vitoriosa (se houver)
 	 */
 	public PieceColor getWinnerColor()
-		{ return checkMate() ? getOpponentColor() : null; }
+		{ return checkMate() || deadlyKissMate() ? getOpponentColor() : null; }
 
 	/**
 	 * Retorna a cor da pedra do turno atual
@@ -617,8 +617,8 @@ public class Board {
 	
 	private List<Piece> getPieceList(PieceColor color, Predicate<Piece> predicate) {
 		List<Piece> pieceList = new ArrayList<>();
-		for (Piece[] boardRow : board)
-			for (Piece piece : boardRow)
+		for (Piece[] boardColumn : board)
+			for (Piece piece : boardColumn)
 				if (piece != null &&
 						(color == null || piece.isSameColorOf(color)) &&
 						(predicate == null || predicate.test(piece)))
@@ -825,23 +825,23 @@ public class Board {
 	public List<Piece> getCapturedBlackPieces()
 		{ return getCapturedPieces(PieceColor.BLACK, null); }
 
-	void addPiece(PiecePosition position, Piece piece) { 
+	public void addPiece(Position position, Piece piece) { 
 		validatePosition(position, "position");
 		validateNullVar(piece, "piece");
 		if (!isFreeSlot(position))
 			throw new InvalidPositionException("The slot at this position is not free");
-		board[position.getRow()][position.getColumn()] = piece;
-		piece.setPosition(position);
+		board[position.getX()][position.getY()] = piece;
+		piece.getPosition().setPosition(position);
 	}
 
-	private void removePiece(PiecePosition position) { 
+	private void removePiece(Position position) { 
 		validatePosition(position, "position");
 		if (isFreeSlot(position))
 			throw new InvalidPositionException("There's no piece at this slot position");
-		board[position.getRow()][position.getColumn()] = null;
+		board[position.getX()][position.getY()] = null;
 	}
 	
-	void removePiece(Piece piece)
+	public void removePiece(Piece piece)
 		{ removePiece(piece.getPosition()); }
 
 	/**
@@ -854,21 +854,15 @@ public class Board {
 		selectedPiece = null;
 	}
 	
-	Piece movePieceTo(PiecePosition sourcePos, PiecePosition targetPos, Boolean justTesting) {
-		if (!justTesting) {
-			boardWasValidated();
-			validatePosition(sourcePos, "sourcePos");
-			validatePosition(targetPos, "targetPos");
-		}
+	Piece movePieceTo(Position sourcePos, Position targetPos) {
+		boardWasValidated();
+		validatePosition(sourcePos, "sourcePos");
+		validatePosition(targetPos, "targetPos");
+		sourcePos = new Position(sourcePos);
+		targetPos = new Position(targetPos);
 		
-		sourcePos = new PiecePosition(sourcePos);
-		targetPos = new PiecePosition(targetPos);
-		
-		if (pawnWasPromoted()) {
-			if (justTesting)
-				return null;
+		if (pawnWasPromoted())
 			throw new InvalidMoveException("You must promote the pawn");
-		}
 
 		if (selectedPiece != null && targetPos.equals(selectedPiece.getPosition())) {
 			//Se o slot de destino for o mesmo da pedra selecionada, desseleciona ela
@@ -888,39 +882,33 @@ public class Board {
 			return null;
 		}
 		
-		if (!sourcePiece.canMoveToPosition(targetPos)) {
-			if (justTesting)
-				return null;
+		if (!sourcePiece.canMoveToPosition(targetPos))
 			throw new InvalidMoveException("Invalid move for this piece");
-		}
 
 		Board cloneBoard = newClonedBoard();
 
 		// Castling special move
 		Rook rook;
-		if (sourcePiece.getType() == PieceType.KING &&
+		if (sourcePiece.isKing() &&
 				(rook = checkCastling(sourcePos, targetPos)) != null) {
 					removePiece(rook.getPosition());
-					rook.setPosition(new PiecePosition(targetPos));
-					rook.incColumn(sourcePos.getColumn() > targetPos.getColumn() ? 1 : -1);
+					rook.getPosition().setPosition(new Position(targetPos));
+					rook.getPosition().incX(sourcePos.getX() > targetPos.getX() ? 1 : -1);
 					addPiece(rook.getPosition(), rook);
-					if (!justTesting)
-						lastMoveWasCastling = true;
+					lastMoveWasCastling = true;
 		}
 
 		removePiece(sourcePos);
 		
 		if (pieceCanDoEnPassant(selectedPiece) && getEnPassantCapturePosition().equals(targetPos)) {
-			if (!justTesting)
-				lastMoveWasEnPassant = true;
+			lastMoveWasEnPassant = true;
 			targetPiece = getEnPassantPawn(); // Verifica se o peão atual realizou um movimento de captura EnPassant
 		}
 		enPassantPiece = null;
 		promotedPiece = null;
 
-		if (sourcePiece.getType() == PieceType.PAWN &&
-				Math.abs(sourcePos.getRow() - targetPos.getRow()) == 2)
-					enPassantPiece = sourcePiece; // Marca peão que iniciou movendo 2 casas como EnPassant
+		if (sourcePiece.isPawn() && Math.abs(sourcePos.getY() - targetPos.getY()) == 2)
+			enPassantPiece = sourcePiece; // Marca peão que iniciou movendo 2 casas como EnPassant
 
 		if (targetPiece != null) {
 			removePiece(targetPiece.getPosition());
@@ -932,26 +920,27 @@ public class Board {
 		sourcePiece.incMovedTurns(1);
 		movedTurns.put(sourcePiece, sourcePiece.getMovedTurns());
 
-		if (sourcePiece.getType() == PieceType.PAWN &&
-				(targetPos.getRow() == 0 || targetPos.getRow() == 7))
-					promotedPiece = sourcePiece;
+		if (sourcePiece.isPawn() && (targetPos.getY() == 0 || targetPos.getY() == 7))
+			promotedPiece = sourcePiece;
 		
 		if (isChecked()) {
-			if (justTesting)
-				return null;
 			cloneBoard(cloneBoard, this);
 			throw new CheckException(!checked ? "You can't put yourself in check" : "You'll still checked after this move");
 		}
-
-		if (!pawnWasPromoted())
+			
+		lastMovedPiece = sourcePiece;
+		if (!pawnWasPromoted()) {
 			changeTurn();
-
-		if (!justTesting && playMode == ChessPlayMode.PLAYER_VS_PLAYER)
-			saveBoardForUndo();
+			checkPossibleDraw();
+		}
 		
+		return targetPiece;
+	}
+	
+	private void checkPossibleDraw() {
 		StringBuilder sb = new StringBuilder();
-		for (Piece[] boardRow : board)
-			for (Piece piece : boardRow)
+		for (Piece[] boardColumn : board)
+			for (Piece piece : boardColumn)
 				if (piece == null)
 					sb.append("[null]");
 				else {
@@ -966,20 +955,26 @@ public class Board {
 		if (lastBoards.size() > 4) {
 			if (!lastBoards.get(i).equals(lastBoards.get(i - 4))) {
 				lastBoards.clear();
-				repeats = 0;
+				repeatedMoves = 0;
 			}
 			else
-				++repeats;
+				++repeatedMoves;
 		}
-		drawGame = getPieceList().size() == 2 || repeats == 3 || kingIsStalemated();				
-		lastMovedPiece = sourcePiece;
-		return targetPiece;
+		if (!pieceWasCaptured() && getLastMovedPiece().getType() != PieceType.PAWN)
+			turnsWithoutCapturesAndPawnMove++;
+		else
+			turnsWithoutCapturesAndPawnMove = 0;
 	}
 	
+	private boolean aloneKingSurvived50Turns() {
+		return getFriendlyPieceList().size() == 1 && getTheFriendlyKing().getMovedTurns() == 50 ||
+			getOpponentPieceList().size() == 1 && getTheOpponentKing().getMovedTurns() == 50;
+	}
+
 	/**
 	 * Returna se é possível executar o método {@code movePieceTo()} com sucesso
 	 */
-	public Boolean checkIfCanMovePieceTo(PiecePosition targetPos) {
+	public Boolean checkIfCanMovePieceTo(Position targetPos) {
 		Board recBoard = newClonedBoard();
 		try
 			{ movePieceTo(targetPos); }
@@ -994,13 +989,15 @@ public class Board {
 	/**
 	 * Move a pedra selecionada para a posição informada
 	 */
-	public Piece movePieceTo(PiecePosition targetPos) throws PieceSelectionException,PieceMoveException {
+	public Piece movePieceTo(Position targetPos) throws PieceSelectionException,PieceMoveException {
 		boardWasValidated();
 		if (isGameOver())
 			throw new PieceMoveException("The current game was ended");
 		if (!pieceIsSelected())
 			throw new PieceSelectionException("There's no selected piece to move!");
-		return movePieceTo(getSelectedPiece().getPosition(), targetPos, false);
+		Piece piece = movePieceTo(getSelectedPiece().getPosition(), targetPos);
+		saveBoardForUndo();
+		return piece;
 	}
 	
 	private void changeTurn() {
@@ -1028,45 +1025,47 @@ public class Board {
 	/**
 	 * Verifica se a pedra na posição informada pode ser capturada por alguma pedra adversária
 	 */
-	public Boolean pieceCouldBeCapturedByAnyOpponentPiece(PiecePosition piecePosition) {
+	public Boolean pieceCouldBeCapturedByAnyOpponentPiece(Position piecePosition) {
 		validatePosition(piecePosition, "piecePosition");
 		if (getPieceAt(piecePosition) == null)
 			throw new InvalidPositionException(piecePosition + " - There is no piece");
 		return pieceCouldBeCapturedByAnyOpponentPiece(getPieceAt(piecePosition));
 	}
 
-	/**
-	 * Verifica se a pedra informada pode ir para alguma posição sem risco de ser capturada
-	 */
-	public Boolean pieceCanGoToAnySafeSpot(Piece piece) {
-		validateNullVar(piece, "piece");
-		return !piece.getPossibleSafeMoves().isEmpty();
+	List<Position> testIfIsPossibleToFindAnResult(Piece piece, Predicate<Position> resultWanted) {
+		Board b = newClonedBoard();
+		List<Position> positions = new ArrayList<>();
+		for (Position position : piece.getPossibleMoves()) {
+			try {
+				movePieceTo(piece.getPosition(), position);
+				if (resultWanted.test(position))
+					positions.add(new Position(position));
+				cloneBoard(b, this);
+			}
+			catch (Exception e)
+				{ cloneBoard(b, this); }
+		}
+		return positions.isEmpty() ? null : positions;
 	}
 	
-	private PiecePosition testPositionsForAResult(Piece piece, Predicate<PiecePosition> resultWanted) {
-		Board b = newClonedBoard();
-		for (PiecePosition position : piece.getPossibleMoves()) {
-			movePieceTo(piece.getPosition(), position, true);
-			if (resultWanted.test(position)) {
-				cloneBoard(b, this);
-				return position;
-			}
-			cloneBoard(b, this);
-		}
-		return null;
+	Boolean testIfIsPossibleToFindAnResultWithAnyPiece(PieceColor color, Predicate<Position> resultWanted) {
+		for (Piece piece : getPieceListByColor(color))
+			if (testIfIsPossibleToFindAnResult(piece, resultWanted) != null)
+				return true;
+		return false;
 	}
 	
 	/**
 	 * Verifica se o jogo terminou 'ou por check mate, ou por empate' 
 	 */
 	public Boolean isGameOver()
-		{ return checkMate() || drawGame(); }
+		{ return deadlyKissMate() || checkMate() || drawGame(); }
 
 	/**
 	 * Verifica se a cor do turno atual está em check 
 	 */
 	public Boolean isChecked(PieceColor color)
-		{ return getPieceList(color, p -> p.isSameTypeOf(PieceType.KING) && pieceIsAtSafePosition(p)).isEmpty(); }
+		{ return pieceCouldBeCapturedByAnyOpponentPiece(getTheKing(color)); }
 
 	/**
 	 * Verifica se a cor do turno atual está em check 
@@ -1075,22 +1074,55 @@ public class Board {
 		{ return isChecked(getCurrentColorTurn()); }
 
 	/**
+	 * Verifica se a cor informada deu mate do beijo fatal no adversário 
+	 */
+	public Boolean deadlyKissMate() {
+		PieceColor color = getCurrentColorTurn();
+		return isChecked() && ((King)getTheKing(color)).isOpponentQueenAround() &&
+			!testIfIsPossibleToFindAnResultWithAnyPiece(color, e -> !((King)getTheKing(color)).isOpponentQueenAround());
+	}
+	
+	/**
 	 * Verifica se a cor informada deu check mate no adversário 
 	 */
 	public Boolean checkMate() {
 		PieceColor color = getCurrentColorTurn();
-		for (Piece piece : getFriendlyPieceList())
-			if (testPositionsForAResult(piece, e -> !isChecked(color)) != null)
-				return false;
-		return true;
+		return !deadlyKissMate() && isChecked() && getTheKing(color).getPossibleSafeMoves().isEmpty() &&
+			!testIfIsPossibleToFindAnResultWithAnyPiece(getCurrentColorTurn(), e -> !isChecked(color));
 	}
 	
 	/**
 	 * Verifica se o jogo deu empate 
 	 */
-	public Boolean drawGame()
-		{ return drawGame; }
+	public Boolean drawGame() {
+		return getPieceList().size() == 2 || repeatedMoves == 3 || kingIsStalemated() ||
+			aloneKingSurvived50Turns() || turnsWithoutCapturesAndPawnMove == 100 ||
+			isDrawByInsufficientMatingMaterial();
+	}
 	
+	/*
+	 * Retorna {@code true} se o empate foi devido á regra de insuficiência de material (Pedras restantes impossibilitadas de realizar checkmate) 
+	 */
+	public Boolean isDrawByInsufficientMatingMaterial() {
+		PieceColor c;
+		for (int n = 0; n < 2; n++) {
+			c = n == 0 ? PieceColor.BLACK : PieceColor.WHITE;
+			final PieceColor color = c;
+			if (getPieceListByColor(color.getOppositeColor()).size() == 1 &&
+					getPieceListByColor(color, p -> p != getTheKing(color)).size() == 1 &&
+					(getPieceListByColor(color, p -> p != getTheKing(color)).get(0).isKing() ||
+					 getPieceListByColor(color, p -> p != getTheKing(color)).get(0).isBishop()))
+						return true;
+		}
+		return false;
+	}
+	
+	/*
+	 * Retorna {@code true} se o empate foi devido á regra das 50 repetições sem captura e sem movimento de peão 
+	 */
+	public Boolean isDrawByFiftyMoveRule()
+		{ return turnsWithoutCapturesAndPawnMove == 100; }
+
 	/*
 	 * Retorna {@code true} se o empate foi devido á só ter sobrado os reis no tabuleiro 
 	 */
@@ -1101,7 +1133,7 @@ public class Board {
 	 * Retorna {@code true} se o empate foi devido á repetições de movimento 
 	 */
 	public Boolean isDrawByThreefoldRepetition()
-		{ return drawGame && repeats == 3; }
+		{ return drawGame && repeatedMoves == 3; }
 
 	/*
 	 * Retorna {@code true} se o empate foi devido á afogamento (Rei sem possibilidade de movimento, mas não sob risco de captura) 
@@ -1110,9 +1142,32 @@ public class Board {
 		{ return drawGame && kingIsStalemated(); }
 	
 	private Boolean kingIsStalemated() {
-		return !getFriendlyPieceList(p -> p.isSameTypeOf(PieceType.KING) &&
-				((King)p).isStaleMated() && testPositionsForAResult(p, e -> ((King)p).isStaleMated()) != null).isEmpty();
+		if (isChecked() || getTheFriendlyKing().havePossibleSafeMoves())
+			return false;
+		PieceColor color = getCurrentColorTurn();
+		return !getTheFriendlyKing().havePossibleSafeMoves() &&
+			!testIfIsPossibleToFindAnResultWithAnyPiece(color, e -> getTheKing(color).havePossibleSafeMoves());
 	}
+
+	/**
+	 * Retorna a pedra correspondente ao rei da cor especificada por parâmetro.
+	 */
+	public Piece getTheKing(PieceColor color) {
+		List<Piece> pieces = getPieceListByColor(color, p -> p.isKing());
+		return pieces.isEmpty() ? null : pieces.get(0);
+	}
+	
+	/**
+	 * Retorna a pedra correspondente ao rei da cor do turno atual.
+	 */
+	public Piece getTheFriendlyKing()
+		{ return getTheKing(getCurrentColorTurn()); }
+	
+	/**
+	 * Retorna a pedra correspondente ao rei da cor do adversário
+	 */
+	public Piece getTheOpponentKing()
+		{ return getTheKing(getOpponentColor()); }
 
 	/**
 	 * Adiciona uma nova pedra no tabuleiro
@@ -1120,7 +1175,7 @@ public class Board {
 	 * @param type - Tipo da pedra que será adicionada
 	 * @param color - Cor da pedra que será adicionada
 	 */
-	public void addNewPiece(PiecePosition position, PieceType type, PieceColor color) {
+	public void addNewPiece(Position position, PieceType type, PieceColor color) {
 		validateNullVar(position, "position");
 		if (!isValidBoardPosition(position))
 			throw new InvalidPositionException("Invalid board position");
@@ -1143,30 +1198,29 @@ public class Board {
 		else 
 			piece = new Pawn(this, position, color);
 
-		if (type == PieceType.KING &&
-				!getPieceListByColor(color, p -> p.isSameTypeOf(PieceType.KING)).isEmpty())
-					throw new BoardException("You can't put more than 1 King of each color on the board");
+		if (type == PieceType.KING && getTheKing(color) != null)
+			throw new BoardException("You can't put more than 1 King of each color on the board");
 				
-		board[position.getRow()][position.getColumn()] = piece;
+		board[position.getX()][position.getY()] = piece;
 		movedTurns.put(piece, 0);
 	}
 
 	/**
-	 * Sobrecarga do método {@code addNewPiece()} que recebe uma coordenada {@code row, column} ao invés de um tipo {@code PiecePosition}
+	 * Sobrecarga do método {@code addNewPiece()} que recebe uma coordenada {@code row, column} ao invés de um tipo {@code Position}
 	 */
 	public void addNewPiece(int row, int column, PieceType type, PieceColor color)
-		{ addNewPiece(new PiecePosition(row, column), type, color); }
+		{ addNewPiece(new Position(column, row), type, color); }
 
 	/**
 	 * Sobrecarga do método {@code addNewPiece()} que recebe uma {@code String} com a coordenada no formato {@code a1|b2|c3|d4|e5|f6|g7|h8}
 	 */
 	public void addNewPiece(String position, PieceType type, PieceColor color)
-		{ addNewPiece(PiecePosition.stringToPosition(position), type, color); }
+		{ addNewPiece(stringToPosition(position), type, color); }
 	
 	/**
 	 * Sobrecarga do método {@code addNewPiece()} que pega o tipo e cor da nova pedra á ser adicionada, á partir de uma pedra existente.
 	 */
-	public void addNewPiece(PiecePosition position, Piece piece)
+	public void addNewPiece(Position position, Piece piece)
 		{ addNewPiece(position, piece.getType(), piece.getColor()); }
 	
 	/**
@@ -1195,6 +1249,15 @@ public class Board {
 						throw new GameException(pieces[y][x] + " - Invalid piece letter. Available letters: \"" + lets + "\"");
 				}
 			}
+	}
+
+	public static Position stringToPosition(String position) throws RuntimeException {
+		position = position.toLowerCase();
+		int row = 7 - (Integer.parseInt(position.substring(1)) - 1);
+		int column = position.charAt(0) - 'a';
+		if (column < 0 || column >= 8 || row < 0 || row >= 8)
+			throw new BoardException("Invalid board position! The value must be between 'a1' and 'h8'");
+		return new Position(column, row);
 	}
 
 }
