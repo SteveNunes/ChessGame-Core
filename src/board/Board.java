@@ -103,10 +103,6 @@ public class Board {
 	
 	public void setSwapSides(Boolean b) {
 		boardWasValidated();
-		if (playMode != ChessPlayMode.PLAYER_VS_CPU)
-			throw new GameException("You can only change it on \"Player vs CPU\" mode");
-		if (turns > 1)
-			throw new GameException("You can't do it after running the first turn");
 		if (swappedSides != b) {
 			Piece[][] tempBoard = new Piece[8][8];
 			for (int n = 0; n < 2; n++)
