@@ -19,7 +19,7 @@ import util.Misc;
 
 public class ChessAI {
 
-	private Boolean debugging = false;
+	private Boolean debugging = true;
 	private Board board = null;
 	private int cpuLastChoice;
 	private Position cpuSelectedPositionToMove;
@@ -227,20 +227,25 @@ public class ChessAI {
 							for (Piece friendlyPiece : board.getPieceListByColor(color))
 								if (!board.pieceIsAtSafePosition(friendlyPiece)) {
 									if (friendlyPiece != piece) {
-										// Se não for a pedra movida
-										friendlyInsightScore += friendlyPiece.getTypeValue();
-										/* Testa se a pedra movida estava COBRINDO a pedra em risco de captura.
-										 * Se sim, gera um score negativo para evitar que a pedra movida pare
-										 * de cobrir a pedra ameaçada de captura.
-										 */
-										friendlyPiece.setColor(color.getOppositeColor());
-										board.removePiece(piece);
-										board.addPiece(positionBefore, piece);
-										if (piece.canMoveToPosition(friendlyPiece.getPosition()))
-											possibleMove.decScore(1048576, (long)(Long.MAX_VALUE / 7 * friendlyPiece.getTypeValue()));
-										friendlyPiece.setColor(color);
-										Board.cloneBoard(recBoard, board);
+										if (safePiecesBefore.contains(piece)) {
+											// Se não for a pedra movida, e a pedra movida estava segura antes de mover
+											friendlyInsightScore += friendlyPiece.getTypeValue();
+											// Testa se a pedra movida não está cobrindo a pedra em risco de captura (deixou de cobrir a toa)
+											friendlyPiece.setColor(color.getOppositeColor());
+											if (!piece.canMoveToPosition(friendlyPiece.getPosition())) {
+												board.removePiece(piece);
+												board.addPiece(positionBefore, piece);
+												// Se ela estava cobrindo e não está mais...
+												if (piece.canMoveToPosition(friendlyPiece.getPosition()))
+													possibleMove.decScore(1048576, (long)(Long.MAX_VALUE / 7 * friendlyPiece.getTypeValue()));
+												Board.cloneBoard(recBoard, board);
+											}
+											friendlyPiece.setColor(color);
+										}
 									}
+									/* SE a pedra movida está em risco de captura, mas não estava antes,
+									 * e não houve uma captura ao mover, decrementa o score (se clocou em risco á toa)
+									 */
 									else if (!board.pieceWasCaptured())
 										possibleMove.decScore(524288, (long)(Long.MAX_VALUE / 6 * piece.getTypeValue()));
 								}

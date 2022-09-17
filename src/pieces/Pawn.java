@@ -24,7 +24,7 @@ public class Pawn extends Piece {
 	
 	public List<Position> getPossibleMoves(Boolean captureMoves) {
 		List<Position> moves = new ArrayList<>();
-		Boolean swaped = getBoard().isSwappedSides();
+		Boolean swaped = getBoard().isSwappedBoard();
 		int inc = (isBlack() && !swaped) || (isWhite() && swaped) ? 1 : -1;
 		Position p = new Position(getPosition());
 		Position p2 = new Position(p);

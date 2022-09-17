@@ -29,7 +29,7 @@ public class King extends Piece  {
 						p2.incX(c == 0 ? 1 : -1);
 					while (getBoard().isFreeSlot(p2));
 					if (p2.equals(getPosition()))
-						inc[1][c == 0 ? 8 : 9] = c == 0 ? -2 : 2;
+						inc[0][c == 0 ? 8 : 9] = c == 0 ? -2 : 2;
 				}
 			}
 		}

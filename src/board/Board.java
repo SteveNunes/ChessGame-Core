@@ -40,6 +40,7 @@ public class Board {
 	private Boolean lastMoveWasCastling;
 	private Boolean boardWasValidated;
 	private Boolean drawGame;
+	private Boolean swappedBoard;
 	private int turns;
 	private int repeatedMoves;
 	private int turnsWithoutCapturesAndPawnMove;
@@ -48,6 +49,7 @@ public class Board {
 	private Piece[][] board;
 	private Piece selectedPiece;
 	private Piece enPassantPiece;
+	private Piece castlingPiece;
 	private Piece lastCapturedPiece;
 	private Piece lastMovedPiece;
 	private Piece promotedPiece;
@@ -70,6 +72,7 @@ public class Board {
 		movedTurns = new HashMap<>();
 		playMode = ChessPlayMode.PLAYER_VS_PLAYER;
 		cpuColor = PieceColor.BLACK;
+		swappedBoard = false;
 		reset(); 
 	}
 	
@@ -94,9 +97,16 @@ public class Board {
 		movedTurns.clear();
 		lastBoards = new ArrayList<>();
 		resetBoard(board);
+		if (swappedBoard)
+			swapSides();
 	}
+	
+	public Boolean isSwappedBoard()
+		{ return swappedBoard; }
 
 	public void swapSides() {
+		boardWasValidated();
+		swappedBoard = !swappedBoard;
 		Piece[][] tempBoard = new Piece[8][8];
 		for (int n = 0; n < 2; n++)
 			for (int x = 0; x < board.length; x++)
@@ -149,12 +159,14 @@ public class Board {
 		targetBoard.turnsWithoutCapturesAndPawnMove = sourceBoard.turnsWithoutCapturesAndPawnMove;
 		targetBoard.lastBoards = new ArrayList<>(sourceBoard.lastBoards);
 		targetBoard.drawGame = sourceBoard.drawGame;
+		targetBoard.swappedBoard = sourceBoard.swappedBoard;
 		targetBoard.lastMovedPiece = sourceBoard.lastMovedPiece;
 		targetBoard.promotedPiece = sourceBoard.promotedPiece;
 		targetBoard.boardWasValidated = sourceBoard.boardWasValidated;
 		targetBoard.lastCapturedPiece = sourceBoard.lastCapturedPiece;
 		targetBoard.lastMoveWasEnPassant = sourceBoard.lastMoveWasEnPassant;
 		targetBoard.lastMoveWasCastling = sourceBoard.lastMoveWasCastling;
+		targetBoard.castlingPiece = sourceBoard.castlingPiece;
 		targetBoard.selectedPiece = sourceBoard.selectedPiece;
 		targetBoard.enPassantPiece = sourceBoard.enPassantPiece;
 		targetBoard.currentColorTurn = sourceBoard.currentColorTurn;
@@ -212,6 +224,12 @@ public class Board {
 	 */
 	public Boolean lastMoveWasCastling()
 		{ return lastMoveWasCastling; }
+	
+	/**
+	 * Retorna a última torre que participou de um Castling
+	 */
+	public Piece getLastCastlingPiece()
+		{ return castlingPiece; }
 
 	/**
 	 * Verifica se é possivel usar o método {@code undoMove()}
@@ -861,7 +879,7 @@ public class Board {
 		Piece sourcePiece = getPieceAt(sourcePos);
 		Piece targetPiece = getPieceAt(targetPos);
 		lastMoveWasCastling = lastMoveWasEnPassant = false;
-		lastCapturedPiece = null;
+		lastCapturedPiece = castlingPiece = enPassantPiece = promotedPiece = null;
 		
 		if (selectedPiece != null && targetPiece != null && selectedPiece.isSameColorOf(targetPiece)) {
 			//Se já houver uma pedra selecionada, e clicar em cima de outra pedra da mesma cor, cancela a seleção atual e seleciona a nova pedra
@@ -875,13 +893,12 @@ public class Board {
 		Board cloneBoard = newClonedBoard();
 
 		// Castling special move
-		Rook rook;
 		if (sourcePiece.isKing() &&
-				(rook = checkCastling(sourcePos, targetPos)) != null) {
-					removePiece(rook.getPosition());
-					rook.getPosition().setPosition(new Position(targetPos));
-					rook.getPosition().incX(sourcePos.getX() > targetPos.getX() ? 1 : -1);
-					addPiece(rook.getPosition(), rook);
+				(castlingPiece = checkCastling(sourcePos, targetPos)) != null) {
+					removePiece(castlingPiece.getPosition());
+					castlingPiece.getPosition().setPosition(new Position(targetPos));
+					castlingPiece.getPosition().incX(sourcePos.getX() > targetPos.getX() ? 1 : -1);
+					addPiece(castlingPiece.getPosition(), castlingPiece);
 					lastMoveWasCastling = true;
 		}
 
@@ -891,8 +908,6 @@ public class Board {
 			lastMoveWasEnPassant = true;
 			targetPiece = getEnPassantPawn(); // Verifica se o peão atual realizou um movimento de captura EnPassant
 		}
-		enPassantPiece = null;
-		promotedPiece = null;
 
 		if (sourcePiece.isPawn() && Math.abs(sourcePos.getY() - targetPos.getY()) == 2)
 			enPassantPiece = sourcePiece; // Marca peão que iniciou movendo 2 casas como EnPassant
@@ -976,16 +991,20 @@ public class Board {
 	/**
 	 * Move a pedra selecionada para a posição informada
 	 */
-	public Piece movePieceTo(Position targetPos) throws PieceSelectionException,PieceMoveException {
+	public Piece movePieceTo(Position targetPos, Boolean notSaveForUndo) throws PieceSelectionException,PieceMoveException {
 		boardWasValidated();
-		if (isGameOver())
+		if (isGameOver() || drawGame())
 			throw new PieceMoveException("The current game was ended");
 		if (!pieceIsSelected())
 			throw new PieceSelectionException("There's no selected piece to move!");
 		Piece piece = movePieceTo(getSelectedPiece().getPosition(), targetPos);
-		saveBoardForUndo();
+		if (!notSaveForUndo)
+			saveBoardForUndo();
 		return piece;
 	}
+	
+	public Piece movePieceTo(Position targetPos) throws PieceSelectionException,PieceMoveException
+		{ return movePieceTo(targetPos, true); }
 	
 	private void changeTurn() {
 		turns++;
@@ -1046,7 +1065,7 @@ public class Board {
 	 * Verifica se o jogo terminou 'ou por check mate, ou por empate' 
 	 */
 	public Boolean isGameOver()
-		{ return deadlyKissMate() || checkMate() || drawGame(); }
+		{ return deadlyKissMate() || checkMate() || (drawGame = drawGame()); }
 
 	/**
 	 * Verifica se a cor do turno atual está em check 
