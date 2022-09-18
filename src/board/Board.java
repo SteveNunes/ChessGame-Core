@@ -1233,6 +1233,7 @@ public class Board {
 	 * Define todas as pedras do tabuleiro á partir de uma matriz contendo caracteres referentes ás pedras em suas respectivas posições no tabuleiro.
 	 */
 	public void setBoard(Character[][] pieces) throws Exception {
+		resetBoard(board);
 		PieceType[] types = {PieceType.PAWN, PieceType.BISHOP, PieceType.KING, PieceType.KNIGHT, PieceType.QUEEN, PieceType.ROOK};
 		String lets = "";
 		for (PieceType type : types)

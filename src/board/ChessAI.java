@@ -19,7 +19,7 @@ import util.Misc;
 
 public class ChessAI {
 
-	private Boolean debugging = true;
+	private Boolean debugging = false;
 	private Board board = null;
 	private int cpuLastChoice;
 	private Position cpuSelectedPositionToMove;
