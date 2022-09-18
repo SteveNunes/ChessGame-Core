@@ -1181,7 +1181,7 @@ public class Board {
 	 * @param type - Tipo da pedra que será adicionada
 	 * @param color - Cor da pedra que será adicionada
 	 */
-	public void addNewPiece(Position position, PieceType type, PieceColor color) {
+	public Piece addNewPiece(Position position, PieceType type, PieceColor color) {
 		validateNullVar(position, "position");
 		if (!isValidBoardPosition(position))
 			throw new InvalidPositionException("Invalid board position");
@@ -1209,25 +1209,26 @@ public class Board {
 				
 		board[position.getX()][position.getY()] = piece;
 		movedTurns.put(piece, 0);
+		return piece;
 	}
 
 	/**
 	 * Sobrecarga do método {@code addNewPiece()} que recebe uma coordenada {@code row, column} ao invés de um tipo {@code Position}
 	 */
-	public void addNewPiece(int row, int column, PieceType type, PieceColor color)
-		{ addNewPiece(new Position(column, row), type, color); }
+	public Piece addNewPiece(int row, int column, PieceType type, PieceColor color)
+		{ return addNewPiece(new Position(column, row), type, color); }
 
 	/**
 	 * Sobrecarga do método {@code addNewPiece()} que recebe uma {@code String} com a coordenada no formato {@code a1|b2|c3|d4|e5|f6|g7|h8}
 	 */
-	public void addNewPiece(String position, PieceType type, PieceColor color)
-		{ addNewPiece(stringToPosition(position), type, color); }
+	public Piece addNewPiece(String position, PieceType type, PieceColor color)
+		{ return addNewPiece(stringToPosition(position), type, color); }
 	
 	/**
 	 * Sobrecarga do método {@code addNewPiece()} que pega o tipo e cor da nova pedra á ser adicionada, á partir de uma pedra existente.
 	 */
-	public void addNewPiece(Position position, Piece piece)
-		{ addNewPiece(position, piece.getType(), piece.getColor()); }
+	public Piece addNewPiece(Position position, Piece piece)
+		{ return addNewPiece(position, piece.getType(), piece.getColor()); }
 	
 	/**
 	 * Define todas as pedras do tabuleiro á partir de uma matriz contendo caracteres referentes ás pedras em suas respectivas posições no tabuleiro.
