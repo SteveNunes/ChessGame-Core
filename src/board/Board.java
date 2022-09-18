@@ -1244,7 +1244,7 @@ public class Board {
 			for (int x = 0; x < pieces[y].length; x++) {
 				PieceType type = null;
 				PieceColor color = null;
-				if (pieces[y][x] != ' ' && pieces[y][x] != '.' && pieces[y][x] != 'x' && pieces[y][x] != 'X') {
+				if (pieces[y][x] != null && pieces[y][x] != ' ' && pieces[y][x] != '.' && pieces[y][x] != 'x' && pieces[y][x] != 'X') {
 					invalidLet = true;
 					for (PieceType t : types)
 						if (PieceType.getLet(t) == Character.toUpperCase(pieces[y][x])) {
