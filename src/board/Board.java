@@ -1085,7 +1085,7 @@ public class Board {
 	public Boolean deadlyKissMate() {
 		PieceColor color = getCurrentColorTurn();
 		return isChecked() && ((King)getTheKing(color)).isOpponentQueenAround() &&
-			!testIfIsPossibleToFindAnResultWithAnyPiece(color, e -> !((King)getTheKing(color)).isOpponentQueenAround());
+				!testIfIsPossibleToFindAnResultWithAnyPiece(getCurrentColorTurn(), e -> !isChecked(color));
 	}
 	
 	/**
@@ -1093,7 +1093,7 @@ public class Board {
 	 */
 	public Boolean checkMate() {
 		PieceColor color = getCurrentColorTurn();
-		return !deadlyKissMate() && isChecked() && getTheKing(color).getPossibleSafeMoves().isEmpty() &&
+		return !deadlyKissMate() && isChecked() &&
 			!testIfIsPossibleToFindAnResultWithAnyPiece(getCurrentColorTurn(), e -> !isChecked(color));
 	}
 	

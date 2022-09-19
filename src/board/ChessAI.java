@@ -144,6 +144,7 @@ public class ChessAI {
 							possibleMove.incScore((long)piece.getIntTypeValue());
 						if (predicate.test(possibleMove)) {
 							Board b = board.newClonedBoard();
+							Boolean checkMate = board.checkMate() || board.deadlyKissMate();
 							if (board.drawGame()) {
 								// Se a pedra movida resultou em um empate
 								if (board.isDrawByBareKings())
@@ -157,64 +158,66 @@ public class ChessAI {
 								else if (board.isDrawByThreefoldRepetition())
 									possibleMove.incScore(33554432, -Long.MAX_VALUE);
 							}
-							if (!board.pieceIsAtSafePosition(piece)) { // Se a pedra movida está sob risco de captura...
-								// Ela não realizou captura no último turno (Ficou em risco por nada)
-								if (!board.pieceWasCaptured())
-									possibleMove.decScore(2, (long)(Long.MAX_VALUE / 6 * piece.getTypeValue()));
-								// Ela capturou uma pedra de menor valor (A troca não valeu a pena)
-								else if (board.getLastCapturedPiece().getTypeValue() < piece.getTypeValue())
-									possibleMove.decScore(4, (long)(Long.MAX_VALUE / 6 * (piece.getTypeValue() - board.getLastCapturedPiece().getTypeValue())));
-								else // Ela capturou uma pedra de valor igual ou maior (A troca valeu a pena)
-									possibleMove.incScore(8, (long)(Long.MAX_VALUE / 9 * board.getLastCapturedPiece().getTypeValue()));
-							}
-							else if (!safePiecesBefore.contains(piece)) {
-								// Se a pedra movida não estava segura antes, e agora está...
-								
-								/* SE havia mais de uma pedra ameaçando a pedra movida, incrementa
-								 * o score, forçando a pedra a de fato permanecer onde parou
-								 */
-								if (piecesThatCanCaptureTheMovedPiece.size() > 1)
-									possibleMove.incScore(16, (long)(Long.MAX_VALUE / 18 * piece.getTypeValue()));
-								else {
-									Board.cloneBoard(recBoard, board);
-									Piece opponentPiece = piecesThatCanCaptureTheMovedPiece.get(0);
-									if (piece.couldCapture(opponentPiece)) {
-										/* SE havia apenas 1 pedra ameaçando a pedra movida, e a pedra movida poderia
-										 * ter capturado ela, testa a captura para ver se após a captura ela ficaria
-										 * segura ou não
-										 */
-										tryToMoveTo(piece, opponentPiece.getPosition());
-										/**
-										 * Se ela de fato poderia ter capturado em segurança, a pedra que a ameaçava,
-										 * e não o fez, decrementa o score, para evitar que ela faça isso
-										 */
-										if (board.pieceIsAtSafePosition(piece))
-												possibleMove.decScore(32, (long)(Long.MAX_VALUE / 7 * piecesThatCanCaptureTheMovedPiece.get(0).getTypeValue()));
-										/**
-										 * Se ela de fato poderia ter capturado em segurança, a pedra que a ameaçava,
-										 * mas poderia ser capturada logo em seguida, e a troca não valeria a pena,
-										 * incrementa o score, para evitar que ela faça isso
-										 */
-										else if (piece.strongerThan(opponentPiece))
-											possibleMove.incScore(67108864, (long)(Long.MAX_VALUE / 9 * board.getLastCapturedPiece().getTypeValue()));
-										/**
-										 * Se ela seria capturada após a captura, mas isso seria por uma troca
-										 * justa, decrementa levemente o score
-										 */
-										else
-											possibleMove.decScore(134217728, (long)(Long.MAX_VALUE / 6 * (piece.getTypeValue() - board.getLastCapturedPiece().getTypeValue())));
+							// Se a pedra movida resultou em um checkmate
+							if (checkMate)
+								possibleMove.incScore(board.deadlyKissMate() ? 1 : 64, Long.MAX_VALUE);
+							else {
+								if (!board.pieceIsAtSafePosition(piece)) { // Se a pedra movida está sob risco de captura...
+									// Ela não realizou captura no último turno (Ficou em risco por nada)
+									if (!board.pieceWasCaptured())
+										possibleMove.decScore(2, (long)(Long.MAX_VALUE / 6 * piece.getTypeValue()));
+									// Ela capturou uma pedra de menor valor (A troca não valeu a pena)
+									else if (board.getLastCapturedPiece().getTypeValue() < piece.getTypeValue())
+										possibleMove.decScore(4, (long)(Long.MAX_VALUE / 6 * (piece.getTypeValue() - board.getLastCapturedPiece().getTypeValue())));
+									else // Ela capturou uma pedra de valor igual ou maior (A troca valeu a pena)
+										possibleMove.incScore(8, (long)(Long.MAX_VALUE / 9 * board.getLastCapturedPiece().getTypeValue()));
+								}
+								else if (!safePiecesBefore.contains(piece)) {
+									// Se a pedra movida não estava segura antes, e agora está...
+									
+									/* SE havia mais de uma pedra ameaçando a pedra movida, incrementa
+									 * o score, forçando a pedra a de fato permanecer onde parou
+									 */
+									if (piecesThatCanCaptureTheMovedPiece.size() > 1)
+										possibleMove.incScore(16, (long)(Long.MAX_VALUE / 18 * piece.getTypeValue()));
+									else {
+										Board.cloneBoard(recBoard, board);
+										Piece opponentPiece = piecesThatCanCaptureTheMovedPiece.get(0);
+										if (piece.couldCapture(opponentPiece)) {
+											/* SE havia apenas 1 pedra ameaçando a pedra movida, e a pedra movida poderia
+											 * ter capturado ela, testa a captura para ver se após a captura ela ficaria
+											 * segura ou não
+											 */
+											tryToMoveTo(piece, opponentPiece.getPosition());
+											/**
+											 * Se ela de fato poderia ter capturado em segurança, a pedra que a ameaçava,
+											 * e não o fez, decrementa o score, para evitar que ela faça isso
+											 */
+											if (board.pieceIsAtSafePosition(piece))
+													possibleMove.decScore(32, (long)(Long.MAX_VALUE / 7 * piecesThatCanCaptureTheMovedPiece.get(0).getTypeValue()));
+											/**
+											 * Se ela de fato poderia ter capturado em segurança, a pedra que a ameaçava,
+											 * mas poderia ser capturada logo em seguida, e a troca não valeria a pena,
+											 * incrementa o score, para evitar que ela faça isso
+											 */
+											else if (piece.strongerThan(opponentPiece))
+												possibleMove.incScore(67108864, (long)(Long.MAX_VALUE / 9 * board.getLastCapturedPiece().getTypeValue()));
+											/**
+											 * Se ela seria capturada após a captura, mas isso seria por uma troca
+											 * justa, decrementa levemente o score
+											 */
+											else
+												possibleMove.decScore(134217728, (long)(Long.MAX_VALUE / 6 * (piece.getTypeValue() - board.getLastCapturedPiece().getTypeValue())));
+										}
+										Board.cloneBoard(b, board);
 									}
-									Board.cloneBoard(b, board);
 								}
 							}
-							// Se a pedra movida resultou em um checkmate
-							if (board.checkMate() || board.deadlyKissMate())
-								possibleMove.incScore(board.deadlyKissMate() ? 1 : 64, Long.MAX_VALUE);
 							// Se a pedra movida capturou uma pedra adversária em segurança
 							if (board.pieceWasCaptured() && board.pieceIsAtSafePosition(piece))
 								possibleMove.incScore(128, (long)(Long.MAX_VALUE / 6 * board.getLastCapturedPiece().getTypeValue()));
 							// Se a pedra movida resultou em um check (Seguro ou não)
-							if (board.isChecked())
+							if (!checkMate && board.isChecked())
 								possibleMove.incScore(board.pieceIsAtSafePosition(piece) ? 256 : 512, 
 										board.pieceIsAtSafePosition(piece) ? Long.MAX_VALUE / 2 : (-Long.MAX_VALUE / 2));
 							// Se a pedra movida for um peão que andou 2 tiles pelas colunas no meio e está seguro
@@ -246,7 +249,7 @@ public class ChessAI {
 									/* SE a pedra movida está em risco de captura, mas não estava antes,
 									 * e não houve uma captura ao mover, decrementa o score (se clocou em risco á toa)
 									 */
-									else if (!board.pieceWasCaptured())
+									else if (!checkMate && !board.pieceWasCaptured())
 										possibleMove.decScore(524288, (long)(Long.MAX_VALUE / 6 * piece.getTypeValue()));
 								}
 							// Gera score positivo baseado em pedras adversárias que estão sob risco de captura
@@ -294,12 +297,12 @@ public class ChessAI {
 											possibleMove.decScore(16384, disX > disY ? disX : disY);
 										}
 										if (!board.pieceWasCaptured() && !otherKingThreatenPositions.isEmpty()) { // Se o ultimo movimento não foi uma captura...
-											// Se o rei adversário ficou com menos possibilidade de movimentos agora do que antes
-											if (otherKingThreatenPositions.size() > opponentPiece.getPossibleSafeMoves().size())
-												possibleMove.incScore(32768, Long.MAX_VALUE / 12);
 											// Se o rei adversário ficou com mais possibilidade de movimentos agora do que antes
+											if (otherKingThreatenPositions.size() > opponentPiece.getPossibleSafeMoves().size())
+												possibleMove.decScore(32768, Long.MAX_VALUE / 12);
+											// Se o rei adversário ficou com menos possibilidade de movimentos agora do que antes
 											else if (otherKingThreatenPositions.size() < opponentPiece.getPossibleSafeMoves().size())
-												possibleMove.decScore(65536, Long.MAX_VALUE / 12);
+												possibleMove.incScore(65536, Long.MAX_VALUE / 12);
 										}
 									}
 							}
