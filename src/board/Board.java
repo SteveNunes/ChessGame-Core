@@ -409,8 +409,7 @@ public class Board {
 		{ return enPassantPiece; }
 	
 	public void setEnPassantPawn(Piece piece) {
-		validateNullVar(piece, "piece");
-		if (piece.isPawn())
+		if (piece == null || piece.isPawn())
 			enPassantPiece = piece;
 	}
 	
