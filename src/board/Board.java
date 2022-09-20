@@ -401,6 +401,12 @@ public class Board {
 	public Piece getEnPassantPawn()
 		{ return enPassantPiece; }
 	
+	public void setEnPassantPawn(Piece piece) {
+		validateNullVar(piece, "piece");
+		if (piece.isPawn())
+			enPassantPiece = piece;
+	}
+	
 	/**
 	 * Se a pedra informada for um peão que possa realizar o movimento "En Passant", retorna a posição onde ele pode capturar usando esse movimento
 	 */
