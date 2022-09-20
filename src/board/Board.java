@@ -7,6 +7,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 import enums.ChessPlayMode;
 import enums.PieceColor;
@@ -52,7 +53,6 @@ public class Board {
 	private Piece castlingPiece;
 	private Piece lastCapturedPiece;
 	private Piece lastMovedPiece;
-	private Piece promotedPiece;
 	private PieceColor currentColorTurn;
 	private PieceColor cpuColor;
 	private ChessAI chessAI;
@@ -91,7 +91,6 @@ public class Board {
 		lastMovedPiece = null;
 		selectedPiece = null;
 		enPassantPiece = null;
-		promotedPiece = null;
 		currentColorTurn = PieceColor.WHITE;
 		capturedPieces.clear();
 		movedTurns.clear();
@@ -161,7 +160,6 @@ public class Board {
 		targetBoard.drawGame = sourceBoard.drawGame;
 		targetBoard.swappedBoard = sourceBoard.swappedBoard;
 		targetBoard.lastMovedPiece = sourceBoard.lastMovedPiece;
-		targetBoard.promotedPiece = sourceBoard.promotedPiece;
 		targetBoard.boardWasValidated = sourceBoard.boardWasValidated;
 		targetBoard.lastCapturedPiece = sourceBoard.lastCapturedPiece;
 		targetBoard.lastMoveWasEnPassant = sourceBoard.lastMoveWasEnPassant;
@@ -367,8 +365,12 @@ public class Board {
 	/**
 	 * Retorna o peão promovido na última rodada (se houver)
 	 */
-	public Piece getPromotedPawn()
-		{ return promotedPiece; }
+	public Piece getPromotedPawn() {
+		List<Piece> list = getPieceList().stream()
+				.filter(p -> p.isPawn() && (p.getPosition().getY() == 0 || p.getPosition().getY() == 7))
+				.collect(Collectors.toList());
+		return list.isEmpty() ? null : list.get(0);
+	}
 	
 	/**
 	 * Verifica se algum peão foi promovido na última rodada
@@ -390,7 +392,6 @@ public class Board {
 		PieceColor color = getPromotedPawn().getColor();
 		removePiece(getPromotedPawn().getPosition());
 		addNewPiece(pos, newType, color);
-		promotedPiece = null;
 		checkPossibleDraw();
 		changeTurn();
 	}
@@ -885,7 +886,7 @@ public class Board {
 		Piece sourcePiece = getPieceAt(sourcePos);
 		Piece targetPiece = getPieceAt(targetPos);
 		lastMoveWasCastling = lastMoveWasEnPassant = false;
-		lastCapturedPiece = castlingPiece = enPassantPiece = promotedPiece = null;
+		lastCapturedPiece = castlingPiece = enPassantPiece = null;
 		
 		if (selectedPiece != null && targetPiece != null && selectedPiece.isSameColorOf(targetPiece)) {
 			//Se já houver uma pedra selecionada, e clicar em cima de outra pedra da mesma cor, cancela a seleção atual e seleciona a nova pedra
@@ -928,9 +929,6 @@ public class Board {
 		sourcePiece.incMovedTurns(1);
 		movedTurns.put(sourcePiece, sourcePiece.getMovedTurns());
 
-		if (sourcePiece.isPawn() && (targetPos.getY() == 0 || targetPos.getY() == 7))
-			promotedPiece = sourcePiece;
-		
 		if (isChecked()) {
 			cloneBoard(cloneBoard, this);
 			throw new CheckException(!checked ? "You can't put yourself in check" : "You'll still checked after this move");
