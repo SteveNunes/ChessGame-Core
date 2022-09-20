@@ -61,7 +61,7 @@ public enum PieceType {
 	
 	public static PieceType getTypeFromLet(char let) {
 		for (PieceType type : getListOfAll())
-			if (let == type.getLet())
+			if (Character.toUpperCase(let) == type.getLet())
 				return type;
 		throw new RuntimeException(let + " - Invalid piece type let");
 	}
