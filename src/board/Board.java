@@ -358,6 +358,9 @@ public class Board {
 		for (Piece[] b : board)
 			Arrays.fill(b, null);
 	}
+	
+	public void resetBoard()
+		{ resetBoard(board); }
 
 	/**
 	 * Retorna o total de turnos jogados até o momento
