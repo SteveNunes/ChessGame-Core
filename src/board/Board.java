@@ -147,6 +147,9 @@ public class Board {
 			throw new GameException("You can't do it after running the first turn");
 		this.playMode = mode;
 	}
+	
+	public Piece[][] getBoard()
+		{ return board; }
 
 	public static void cloneBoard(Board sourceBoard, Board targetBoard) {
 		validateNullVar(sourceBoard, "sourceBoard");
