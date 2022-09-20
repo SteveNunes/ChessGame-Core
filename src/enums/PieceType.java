@@ -59,6 +59,13 @@ public enum PieceType {
 		return color == PieceColor.BLACK ? Character.toLowerCase(let) : let;
 	}
 	
+	public static PieceType getTypeFromLet(char let) {
+		for (PieceType type : getListOfAll())
+			if (let == type.getLet())
+				return type;
+		throw new RuntimeException(let + " - Invalid piece type let");
+	}
+	
 	public static char getLet(PieceType type)
 		{ return getLet(type, PieceColor.WHITE); }
 	
