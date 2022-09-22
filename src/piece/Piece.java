@@ -140,7 +140,7 @@ public abstract class Piece implements Comparable<Piece> {
 	 * Verifica se a pedra atual é um peão da cor especificada
 	 */
 	public Boolean isPawn(PieceColor color)
-		{ return getType() == PieceType.PAWN; }
+		{ return is(PieceType.PAWN, color); }
 	
 	/**
 	 * Verifica se a pedra atual é um peão, independente da cor
@@ -164,7 +164,7 @@ public abstract class Piece implements Comparable<Piece> {
 	 * Verifica se a pedra atual é um rei da cor especificada
 	 */
 	public Boolean isKing(PieceColor color)
-		{ return getType() == PieceType.KING; }
+		{ return is(PieceType.KING, color); }
 	
 	/**
 	 * Verifica se a pedra atual é um rei, independente da cor
@@ -188,7 +188,7 @@ public abstract class Piece implements Comparable<Piece> {
 	 * Verifica se a pedra atual é um rainha da cor especificada
 	 */
 	public Boolean isQueen(PieceColor color)
-		{ return getType() == PieceType.QUEEN; }
+		{ return is(PieceType.QUEEN, color); }
 	
 	/**
 	 * Verifica se a pedra atual é um rainha, independente da cor
@@ -212,7 +212,7 @@ public abstract class Piece implements Comparable<Piece> {
 	 * Verifica se a pedra atual é um cavalo da cor especificada
 	 */
 	public Boolean isKnight(PieceColor color)
-		{ return getType() == PieceType.KNIGHT; }
+		{ return is(PieceType.KNIGHT, color); }
 	
 	/**
 	 * Verifica se a pedra atual é um cavalo, independente da cor
@@ -236,7 +236,7 @@ public abstract class Piece implements Comparable<Piece> {
 	 * Verifica se a pedra atual é um bispo da cor especificada
 	 */
 	public Boolean isBishop(PieceColor color)
-		{ return getType() == PieceType.BISHOP; }
+		{ return is(PieceType.BISHOP, color); }
 	
 	/**
 	 * Verifica se a pedra atual é um bispo, independente da cor
@@ -260,7 +260,7 @@ public abstract class Piece implements Comparable<Piece> {
 	 * Verifica se a pedra atual é um torre da cor especificada
 	 */
 	public Boolean isRook(PieceColor color)
-		{ return getType() == PieceType.ROOK; }
+		{ return is(PieceType.ROOK, color); }
 	
 	/**
 	 * Verifica se a pedra atual é um torre, independente da cor
@@ -302,13 +302,7 @@ public abstract class Piece implements Comparable<Piece> {
 	 * Verifica se a pedra informada tem o mesmo tipo e cor da pedra atual
 	 */
 	public Boolean isTwin(Piece piece)
-		{ return piece.getType() == getType() && piece.getColor() == getColor(); }
-	
-	/**
-	 * Verifica se a pedra está na posição informada
-	 */
-	public Boolean isSamePosition(Position position)
-		{ return getPosition().equals(position); }
+		{ return piece.is(getType(), getColor()); }
 	
 	/**
 	 * Verifica se o tipo da pedra atual é mais forte que o tipo da pedra informada

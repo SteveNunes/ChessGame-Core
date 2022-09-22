@@ -7,7 +7,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
 
 import enums.ChessPlayMode;
 import enums.PieceColor;
@@ -369,9 +368,7 @@ public class Board {
 	 * Retorna o peão promovido na última rodada (se houver)
 	 */
 	public Piece getPromotedPawn() {
-		List<Piece> list = getPieceList().stream()
-				.filter(p -> p.isPawn() && (p.getPosition().getY() == 0 || p.getPosition().getY() == 7))
-				.collect(Collectors.toList());
+		List<Piece> list = getPieceList(p -> p.isPawn() && (p.getPosition().getY() == 0 || p.getPosition().getY() == 7));
 		return list.isEmpty() ? null : list.get(0);
 	}
 	
@@ -430,7 +427,7 @@ public class Board {
 		for (int x = -1; x <= 1; x += 2) {
 			Position p = new Position(piece.getPosition());
 			p.incX(x);
-			if (getEnPassantPawn().isSamePosition(p))
+			if (getEnPassantPawn().getPosition().equals(p))
 				return true;
 		}
 		return false;
