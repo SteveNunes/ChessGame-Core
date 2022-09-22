@@ -1158,7 +1158,7 @@ public class Board {
 	 * Retorna a pedra correspondente ao rei da cor especificada por parâmetro.
 	 */
 	public Piece getTheKing(PieceColor color) {
-		List<Piece> pieces = getPieceListByColor(color, p -> p.isKing());
+		List<Piece> pieces = getPieceListByColor(color, p -> p.isKing(color));
 		return pieces.isEmpty() ? null : pieces.get(0);
 	}
 	
