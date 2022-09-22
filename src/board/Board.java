@@ -49,7 +49,6 @@ public class Board {
 	private List<String> lastBoards;
 	private Piece[][] board;
 	private Piece selectedPiece;
-	private Piece enPassantPiece;
 	private Piece castlingPiece;
 	private Piece lastCapturedPiece;
 	private Piece lastMovedPiece;
@@ -90,7 +89,6 @@ public class Board {
 		lastCapturedPiece = null;
 		lastMovedPiece = null;
 		selectedPiece = null;
-		enPassantPiece = null;
 		currentColorTurn = PieceColor.WHITE;
 		capturedPieces.clear();
 		movedTurns.clear();
@@ -169,7 +167,6 @@ public class Board {
 		targetBoard.lastMoveWasCastling = sourceBoard.lastMoveWasCastling;
 		targetBoard.castlingPiece = sourceBoard.castlingPiece;
 		targetBoard.selectedPiece = sourceBoard.selectedPiece;
-		targetBoard.enPassantPiece = sourceBoard.enPassantPiece;
 		targetBoard.currentColorTurn = sourceBoard.currentColorTurn;
 		targetBoard.capturedPieces = new ArrayList<>(sourceBoard.capturedPieces);
 		targetBoard.turns = sourceBoard.turns;
@@ -405,12 +402,11 @@ public class Board {
 	/**
 	 * Retorna a pedra marcada atualmente como En Passant (se houver)
 	 */
-	public Piece getEnPassantPawn()
-		{ return enPassantPiece; }
-	
-	public void setEnPassantPawn(Piece piece) {
-		if (piece == null || piece.isPawn())
-			enPassantPiece = piece;
+	public Piece getEnPassantPawn() {
+		List<Piece> list = getOpponentPieceList(piece ->
+			piece.isPawn() && piece.getMovedTurns() == 1 && getLastMovedPiece() == piece &&
+			(piece.getPosition().getY() == 3 || piece.getPosition().getY() == 4));
+		return list.isEmpty() ? null : list.get(0);
 	}
 	
 	/**
@@ -891,7 +887,7 @@ public class Board {
 		Piece sourcePiece = getPieceAt(sourcePos);
 		Piece targetPiece = getPieceAt(targetPos);
 		lastMoveWasCastling = lastMoveWasEnPassant = false;
-		lastCapturedPiece = castlingPiece = enPassantPiece = null;
+		lastCapturedPiece = castlingPiece = null;
 		
 		if (selectedPiece != null && targetPiece != null && selectedPiece.isSameColorOf(targetPiece)) {
 			//Se já houver uma pedra selecionada, e clicar em cima de outra pedra da mesma cor, cancela a seleção atual e seleciona a nova pedra
@@ -920,9 +916,6 @@ public class Board {
 			lastMoveWasEnPassant = true;
 			targetPiece = getEnPassantPawn(); // Verifica se o peão atual realizou um movimento de captura EnPassant
 		}
-
-		if (sourcePiece.isPawn() && Math.abs(sourcePos.getY() - targetPos.getY()) == 2)
-			enPassantPiece = sourcePiece; // Marca peão que iniciou movendo 2 casas como EnPassant
 
 		if (targetPiece != null) {
 			removePiece(targetPiece.getPosition());
@@ -988,7 +981,7 @@ public class Board {
 	public Boolean checkIfCanMovePieceTo(Position targetPos) {
 		Board recBoard = newClonedBoard();
 		try
-			{ movePieceTo(targetPos); }
+			{ movePieceTo(targetPos, true); }
 		catch (Exception e) {
 			cloneBoard(recBoard, this);
 			return false;
@@ -1013,7 +1006,7 @@ public class Board {
 	}
 	
 	public Piece movePieceTo(Position targetPos) throws PieceSelectionException,PieceMoveException
-		{ return movePieceTo(targetPos, true); }
+		{ return movePieceTo(targetPos, false); }
 	
 	private void changeTurn() {
 		turns++;
