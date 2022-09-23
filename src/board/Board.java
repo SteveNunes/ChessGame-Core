@@ -439,7 +439,7 @@ public class Board {
 		if (getEnPassantPawn() == null)
 			throw new GameException("There's no \"En Passant\" pawn");
 		Position position = new Position(getEnPassantPawn().getPosition());
-		position.incY(getEnPassantRow(getEnPassantPawn()) == 4 ? -1 : 1);
+		position.incY(getEnPassantRow(getEnPassantPawn()) == 3 ? -1 : 1);
 		return position;
 	}
 
