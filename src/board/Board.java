@@ -368,7 +368,7 @@ public class Board {
 	 * Retorna o peão promovido na última rodada (se houver)
 	 */
 	public Piece getPromotedPawn() {
-		List<Piece> list = getPieceList(p -> p.isPawn() && (p.getPosition().getY() == 0 || p.getPosition().getY() == 7));
+		List<Piece> list = getPieceList(p -> p.isPawn() && p.getPosition().getY() == getPromotionRow(p));
 		return list.isEmpty() ? null : list.get(0);
 	}
 	
@@ -397,12 +397,38 @@ public class Board {
 	}
 	
 	/**
+	 * Retorna a linha onde o peão que moveu 2 pisos iniciais é considerado como
+	 * En Passant, levando em conta se o tabuleiro está invertido ou não
+	 */
+	public int getEnPassantRow(PieceColor color) {
+		validateNullVar(color, "color");
+		return (color == PieceColor.WHITE && !swappedBoard) ||
+			(color == PieceColor.BLACK && swappedBoard) ? 4 : 3;
+	}
+	
+	public int getEnPassantRow(Piece piece)
+		{ return getEnPassantRow(piece.getColor()); }
+	
+	/**
+	 * Retorna a linha onde o peão pode ser promovido,
+	 * levando em conta se o tabuleiro está invertido ou não
+	 */
+	public int getPromotionRow(PieceColor color) {
+		validateNullVar(color, "color");
+		return (color == PieceColor.WHITE && !swappedBoard) ||
+			(color == PieceColor.BLACK && swappedBoard) ? 0 : 7;
+	}
+
+	public int getPromotionRow(Piece piece)
+		{ return getPromotionRow(piece.getColor()); }
+
+	/**
 	 * Retorna a pedra marcada atualmente como En Passant (se houver)
 	 */
 	public Piece getEnPassantPawn() {
 		List<Piece> list = getOpponentPieceList(piece ->
 			piece.isPawn() && piece.getMovedTurns() == 1 && getLastMovedPiece() == piece &&
-			(piece.getPosition().getY() == 3 || piece.getPosition().getY() == 4));
+			piece.getPosition().getY() == getEnPassantRow(piece));
 		return list.isEmpty() ? null : list.get(0);
 	}
 	
@@ -413,7 +439,7 @@ public class Board {
 		if (getEnPassantPawn() == null)
 			throw new GameException("There's no \"En Passant\" pawn");
 		Position position = new Position(getEnPassantPawn().getPosition());
-		position.incY(getEnPassantPawn().getPosition().getY() == 3 ? -1 : 1);
+		position.incY(getEnPassantRow(getEnPassantPawn()) == 4 ? -1 : 1);
 		return position;
 	}
 
