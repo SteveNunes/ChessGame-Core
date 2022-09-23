@@ -140,7 +140,7 @@ public abstract class Piece implements Comparable<Piece> {
 	 * Verifica se a pedra atual é um peão da cor especificada
 	 */
 	public Boolean isPawn(PieceColor color)
-		{ return is(PieceType.PAWN, color); }
+		{ return getType() == PieceType.PAWN && (color == null || getColor() == color); }
 	
 	/**
 	 * Verifica se a pedra atual é um peão, independente da cor
@@ -164,7 +164,7 @@ public abstract class Piece implements Comparable<Piece> {
 	 * Verifica se a pedra atual é um rei da cor especificada
 	 */
 	public Boolean isKing(PieceColor color)
-		{ return is(PieceType.KING, color); }
+	{ return getType() == PieceType.KING && (color == null || getColor() == color); }
 	
 	/**
 	 * Verifica se a pedra atual é um rei, independente da cor
@@ -188,7 +188,7 @@ public abstract class Piece implements Comparable<Piece> {
 	 * Verifica se a pedra atual é um rainha da cor especificada
 	 */
 	public Boolean isQueen(PieceColor color)
-		{ return is(PieceType.QUEEN, color); }
+		{ return getType() == PieceType.QUEEN && (color == null || getColor() == color); }
 	
 	/**
 	 * Verifica se a pedra atual é um rainha, independente da cor
@@ -212,7 +212,7 @@ public abstract class Piece implements Comparable<Piece> {
 	 * Verifica se a pedra atual é um cavalo da cor especificada
 	 */
 	public Boolean isKnight(PieceColor color)
-		{ return is(PieceType.KNIGHT, color); }
+		{ return getType() == PieceType.KNIGHT && (color == null || getColor() == color); }
 	
 	/**
 	 * Verifica se a pedra atual é um cavalo, independente da cor
@@ -236,7 +236,7 @@ public abstract class Piece implements Comparable<Piece> {
 	 * Verifica se a pedra atual é um bispo da cor especificada
 	 */
 	public Boolean isBishop(PieceColor color)
-		{ return is(PieceType.BISHOP, color); }
+		{ return getType() == PieceType.BISHOP && (color == null || getColor() == color); }
 	
 	/**
 	 * Verifica se a pedra atual é um bispo, independente da cor
@@ -260,7 +260,7 @@ public abstract class Piece implements Comparable<Piece> {
 	 * Verifica se a pedra atual é um torre da cor especificada
 	 */
 	public Boolean isRook(PieceColor color)
-		{ return is(PieceType.ROOK, color); }
+		{ return getType() == PieceType.ROOK && (color == null || getColor() == color); }
 	
 	/**
 	 * Verifica se a pedra atual é um torre, independente da cor
