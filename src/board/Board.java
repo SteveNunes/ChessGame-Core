@@ -565,7 +565,7 @@ public class Board {
 	 */
 	public Piece getPieceAt(Position position) {
 		validateNullVar(position, "position");
-		return !isValidBoardPosition(position) ? null : board[position.getX()][position.getY()];
+		return !isValidBoardPosition(position) ? null : board[(int)position.getX()][(int)position.getY()];
 	}
 	
 	/**
@@ -866,7 +866,7 @@ public class Board {
 		validateNullVar(piece, "piece");
 		if (!isFreeSlot(position))
 			throw new InvalidPositionException("The slot at this position is not free");
-		board[position.getX()][position.getY()] = piece;
+		board[(int)position.getX()][(int)position.getY()] = piece;
 		piece.getPosition().setPosition(position);
 	}
 
@@ -874,7 +874,7 @@ public class Board {
 		validatePosition(position, "position");
 		if (isFreeSlot(position))
 			throw new InvalidPositionException("There's no piece at this slot position");
-		board[position.getX()][position.getY()] = null;
+		board[(int)position.getX()][(int)position.getY()] = null;
 	}
 	
 	public void removePiece(Piece piece)
@@ -1232,7 +1232,7 @@ public class Board {
 		if (type == PieceType.KING && getTheKing(color) != null)
 			throw new BoardException("You can't put more than 1 King of each color on the board");
 				
-		board[position.getX()][position.getY()] = piece;
+		board[(int)position.getX()][(int)position.getY()] = piece;
 		movedTurns.put(piece, 0);
 		return piece;
 	}

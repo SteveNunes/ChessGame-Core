@@ -292,8 +292,8 @@ public class ChessAI {
 											/* Incrementa o score baseado na distância da pedra atual para a pedra do rei,
 											 * desde que essa posição nao coloque a pedra em perigo (apenas não-peôes)
 											 */
-											int disX = Math.abs(opponentPiece.getPosition().getX() - position.getX()); 
-											int disY = Math.abs(opponentPiece.getPosition().getY() - position.getY());
+											int disX = Math.abs((int)opponentPiece.getPosition().getX() - (int)position.getX()); 
+											int disY = Math.abs((int)opponentPiece.getPosition().getY() - (int)position.getY());
 											possibleMove.decScore(16384, disX > disY ? disX : disY);
 										}
 										if (!board.pieceWasCaptured() && !otherKingThreatenPositions.isEmpty()) { // Se o ultimo movimento não foi uma captura...
